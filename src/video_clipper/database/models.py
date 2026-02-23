@@ -28,6 +28,7 @@ class Database(ConnectionMixin):
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     source_chat_id INTEGER NOT NULL,
                     source_message_id INTEGER NOT NULL,
+                    buffer_message_id INTEGER,
                     file_path TEXT,
                     file_size INTEGER,
                     duration REAL,
@@ -483,3 +484,34 @@ class Database(ConnectionMixin):
             )
             row = await cursor.fetchone()
             return row["cnt"] if row else 0
+
+    async def update_video_buffer_message(self, video_id: int, buffer_message_id: int) -> None:
+        """Сохранить ID сообщения в Buffer-канале."""
+        async with self._get_connection() as conn:
+            await conn.execute(
+                "UPDATE videos SET buffer_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (buffer_message_id, video_id),
+            )
+
+    async def get_videos_for_cleanup(self, hours: int) -> list[dict]:
+        """Видео для авто-очистки: финальный статус + файл есть + старше N часов."""
+        async with self._get_connection() as conn:
+            cursor = await conn.execute(
+                """
+                SELECT id, file_path FROM videos
+                WHERE status IN ('published', 'rejected', 'failed', 'skipped')
+                AND file_path IS NOT NULL
+                AND updated_at < datetime('now', ? || ' hours')
+                """,
+                (f"-{hours}",),
+            )
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def clear_video_file(self, video_id: int) -> None:
+        """Очистить путь к файлу видео (после удаления файла)."""
+        async with self._get_connection() as conn:
+            await conn.execute(
+                "UPDATE videos SET file_path = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (video_id,),
+            )
