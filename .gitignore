@@ -1,0 +1,40 @@
+# Credentials
+creds.json
+.env
+
+# Storage
+storage/downloads/
+storage/clips/
+storage/temp/
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+
+# Telegram
+*.session
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Distribution
+dist/
+build/
+*.egg-info/
