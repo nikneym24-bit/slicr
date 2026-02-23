@@ -101,9 +101,27 @@ async def main():
     monitor = TelegramMonitor(config, db, tg_client, on_new_video=on_new_video)
     await monitor.start()
 
-    # 10. Загрузить остальные заглушки (проверка что грузятся)
-    from video_clipper.pipeline.orchestrator import PipelineOrchestrator
+    # 10. Downloader (Stage 2c)
     from video_clipper.pipeline.downloader import VideoDownloader
+
+    downloader = VideoDownloader(config, db, tg_client)
+    await downloader.start()
+
+    # Периодическая очистка старых файлов
+    async def periodic_cleanup():
+        """Периодическая очистка старых файлов."""
+        while True:
+            await asyncio.sleep(3600)  # каждый час
+            try:
+                await downloader.cleanup_old_files()
+            except Exception as e:
+                logger.error(f"Ошибка очистки: {e}")
+
+    if config.cleanup_enabled and not config.mock_monitor:
+        asyncio.create_task(periodic_cleanup())
+
+    # Загрузить остальные заглушки (проверка что грузятся)
+    from video_clipper.pipeline.orchestrator import PipelineOrchestrator
     from video_clipper.pipeline.transcriber import WhisperTranscriber
     from video_clipper.pipeline.selector import MomentSelector
     from video_clipper.pipeline.editor import VideoEditor
@@ -133,6 +151,7 @@ async def main():
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
+        await downloader.stop()
         await monitor.stop()
         if not config.mock_monitor:
             await tg_client.disconnect()

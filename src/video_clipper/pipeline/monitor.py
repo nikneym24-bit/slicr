@@ -196,12 +196,13 @@ class TelegramMonitor:
 
         try:
             # 1. Переслать в Buffer с автором
-            await self.tg_client.forward_messages(
+            buffer_sent = await self.tg_client.forward_messages(
                 to_chat_id=self.config.buffer_channel_id,
                 from_chat_id=chat_id,
                 message_ids=[message_id],
                 drop_author=False,
             )
+            buffer_message_id = buffer_sent[0].id if buffer_sent else None
 
             # 2. Переслать в Tech без автора
             await self.tg_client.forward_messages(
@@ -228,6 +229,10 @@ class TelegramMonitor:
                 width=width,
                 height=height,
             )
+
+            # 4a. Сохранить buffer_message_id
+            if buffer_message_id:
+                await self.db.update_video_buffer_message(video_id, buffer_message_id)
 
             # 5. Уведомить о новом видео (callback для aiogram-бота)
             if self._on_new_video:
@@ -305,7 +310,7 @@ class TelegramMonitor:
 
         try:
             # 1. Переслать ВСЮ группу в Buffer с автором
-            await self.tg_client.forward_messages(
+            buffer_sent = await self.tg_client.forward_messages(
                 to_chat_id=self.config.buffer_channel_id,
                 from_chat_id=chat_id,
                 message_ids=all_message_ids,
@@ -327,7 +332,7 @@ class TelegramMonitor:
             )
 
             # 4. Сохранить каждое видео в БД
-            for event, video_info in valid_events:
+            for i, (event, video_info) in enumerate(valid_events):
                 message = event.message
                 caption = message.message or None
                 try:
@@ -340,6 +345,9 @@ class TelegramMonitor:
                         width=video_info["width"],
                         height=video_info["height"],
                     )
+                    # Сохранить buffer_message_id (порядок buffer_sent совпадает с all_message_ids)
+                    if buffer_sent and i < len(buffer_sent):
+                        await self.db.update_video_buffer_message(video_id, buffer_sent[i].id)
                     # Уведомить о новом видео (callback для aiogram-бота)
                     if self._on_new_video:
                         await self._on_new_video(video_id)

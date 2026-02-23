@@ -119,7 +119,7 @@ src/video_clipper/database/
 ```
 
 **Таблицы:**
-- `videos` — исходные видео
+- `videos` — исходные видео (включает `buffer_message_id` — ID пересланного сообщения в Buffer)
 - `transcriptions` — транскрипции (word-level)
 - `clips` — нарезанные клипы
 - `jobs` — очередь задач
@@ -247,7 +247,9 @@ tests/
 ├── conftest.py          # Фикстуры pytest
 ├── test_database.py     # Тесты БД
 ├── test_config.py       # Тесты конфига
-└── test_pipeline.py     # Тесты конвейера
+├── test_stage2a.py      # Тесты Stage 2a: Monitor + TelegramClient
+├── test_stage2b.py      # Тесты Stage 2b: Bot + модерация
+└── test_stage2c.py      # Тесты Stage 2c: VideoDownloader
 ```
 
 **Зависимости:** pytest, pytest-asyncio
