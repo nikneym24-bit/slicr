@@ -1,7 +1,7 @@
 import json
 import os
 import pytest
-from video_clipper.config import load_config, Config, ConfigError
+from slicr.config import load_config, Config, ConfigError
 
 
 def test_load_config_from_file(tmp_path):
@@ -39,8 +39,8 @@ def test_load_config_from_file(tmp_path):
 
 
 def test_dev_mode_from_env(tmp_path, monkeypatch):
-    """Установить env VIDEO_CLIPPER_DEV=1, проверить config.dev_mode == True."""
-    monkeypatch.setenv("VIDEO_CLIPPER_DEV", "1")
+    """Установить env SLICR_DEV=1, проверить config.dev_mode == True."""
+    monkeypatch.setenv("SLICR_DEV", "1")
 
     # Без файла должно работать в dev-режиме
     config = load_config(str(tmp_path / "nonexistent_creds.json"))
@@ -49,8 +49,8 @@ def test_dev_mode_from_env(tmp_path, monkeypatch):
 
 def test_missing_creds_raises(tmp_path, monkeypatch):
     """Без файла и без dev_mode → ConfigError."""
-    monkeypatch.delenv("VIDEO_CLIPPER_DEV", raising=False)
-    monkeypatch.delenv("VIDEO_CLIPPER_MOCK_GPU", raising=False)
+    monkeypatch.delenv("SLICR_DEV", raising=False)
+    monkeypatch.delenv("SLICR_MOCK_GPU", raising=False)
 
     with pytest.raises(ConfigError):
         load_config(str(tmp_path / "nonexistent_creds.json"))

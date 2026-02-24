@@ -1,7 +1,7 @@
 import pytest
 import pytest_asyncio
-from video_clipper.database import Database
-from video_clipper.config import Config
+from slicr.database import Database
+from slicr.config import Config
 
 
 @pytest_asyncio.fixture
@@ -31,4 +31,13 @@ def config():
         claude_api_key="test",
         vk_access_token="test",
         vk_group_id=0,
+        buffer_channel_id=0,
+        proxy=None,
+        session_string="",
+        max_concurrent_downloads=1,
+        max_file_size=2 * 1024 * 1024 * 1024,
+        cleanup_enabled=True,
+        cleanup_after_hours=48,
+        filter_keywords=[],
+        filter_stopwords=[],
     )

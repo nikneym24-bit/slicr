@@ -47,6 +47,34 @@ class Config:
     # Source channels
     source_channels: list[int] = field(default_factory=list)
 
+    # Telegram каналы
+    buffer_channel_id: int = 0
+    # Канал-буфер: хранилище пересланных видео
+
+    # Proxy
+    proxy: dict | None = None
+    # Формат: {"type": "socks5", "host": "...", "port": 1080, "username": "...", "password": "..."}
+    # Или:    {"type": "mtproto", "host": "...", "port": ..., "secret": "..."}
+    # Или None — прямое подключение
+
+    # Session
+    session_string: str = ""
+    # StringSession для Telethon (альтернатива файловой сессии)
+
+    # Download
+    max_concurrent_downloads: int = 1
+    max_file_size: int = 2 * 1024 * 1024 * 1024  # 2 GB
+
+    # Cleanup
+    cleanup_enabled: bool = True
+    cleanup_after_hours: int = 48
+
+    # Text filter
+    filter_keywords: list[str] = field(default_factory=list)
+    # Whitelist: если не пустой, caption должен содержать хотя бы одно слово
+    filter_stopwords: list[str] = field(default_factory=list)
+    # Blacklist: если caption содержит стоп-слово — пропускаем
+
     # Dev mode
     dev_mode: bool = False
     mock_gpu: bool = False
@@ -54,7 +82,7 @@ class Config:
     mock_monitor: bool = False
 
     # DB
-    db_path: str = "video_clipper.db"
+    db_path: str = "slicr.db"
 
 
 def load_config(path: str = "creds.json") -> Config:
@@ -62,16 +90,16 @@ def load_config(path: str = "creds.json") -> Config:
     Загружает конфигурацию из JSON-файла с перезаписью через переменные окружения.
 
     Переменные окружения:
-        VIDEO_CLIPPER_DEV=1       → dev_mode=True
-        VIDEO_CLIPPER_MOCK_GPU=1  → mock_gpu=True
-        VIDEO_CLIPPER_MOCK_SELECTOR=1 → mock_selector=True
-        VIDEO_CLIPPER_MOCK_MONITOR=1  → mock_monitor=True
+        SLICR_DEV=1       → dev_mode=True
+        SLICR_MOCK_GPU=1  → mock_gpu=True
+        SLICR_MOCK_SELECTOR=1 → mock_selector=True
+        SLICR_MOCK_MONITOR=1  → mock_monitor=True
 
     Если файл не найден и dev_mode=True — работает с дефолтами.
     Если файл не найден и dev_mode=False — поднимает ConfigError.
     """
     # Сначала определяем dev_mode из env, чтобы понять как обрабатывать отсутствующий файл
-    env_dev_mode = os.environ.get("VIDEO_CLIPPER_DEV", "").strip() == "1"
+    env_dev_mode = os.environ.get("SLICR_DEV", "").strip() == "1"
 
     data: dict = {}
     try:
@@ -85,7 +113,7 @@ def load_config(path: str = "creds.json") -> Config:
             raise ConfigError(
                 f"Файл конфигурации '{path}' не найден. "
                 "Создайте его на основе creds.example.json или установите "
-                "переменную окружения VIDEO_CLIPPER_DEV=1 для dev-режима."
+                "переменную окружения SLICR_DEV=1 для dev-режима."
             )
     except json.JSONDecodeError as e:
         raise ConfigError(f"Ошибка парсинга файла конфигурации '{path}': {e}")
@@ -112,21 +140,30 @@ def load_config(path: str = "creds.json") -> Config:
         gpu_min_free_vram_gb=float(data.get("gpu_min_free_vram_gb", 3.0)),
         storage_base=data.get("storage_base", "./storage"),
         source_channels=list(data.get("source_channels", [])),
+        buffer_channel_id=int(data.get("buffer_channel_id", 0)),
+        proxy=data.get("proxy", None),
+        session_string=data.get("session_string", ""),
+        max_concurrent_downloads=int(data.get("max_concurrent_downloads", 1)),
+        max_file_size=int(data.get("max_file_size", 2 * 1024 * 1024 * 1024)),
+        cleanup_enabled=bool(data.get("cleanup_enabled", True)),
+        cleanup_after_hours=int(data.get("cleanup_after_hours", 48)),
+        filter_keywords=list(data.get("filter_keywords", [])),
+        filter_stopwords=list(data.get("filter_stopwords", [])),
         dev_mode=bool(data.get("dev_mode", False)),
         mock_gpu=bool(data.get("mock_gpu", False)),
         mock_selector=bool(data.get("mock_selector", False)),
         mock_monitor=bool(data.get("mock_monitor", False)),
-        db_path=data.get("db_path", "video_clipper.db"),
+        db_path=data.get("db_path", "slicr.db"),
     )
 
     # Переменные окружения перезаписывают JSON
     if env_dev_mode:
         config.dev_mode = True
-    if os.environ.get("VIDEO_CLIPPER_MOCK_GPU", "").strip() == "1":
+    if os.environ.get("SLICR_MOCK_GPU", "").strip() == "1":
         config.mock_gpu = True
-    if os.environ.get("VIDEO_CLIPPER_MOCK_SELECTOR", "").strip() == "1":
+    if os.environ.get("SLICR_MOCK_SELECTOR", "").strip() == "1":
         config.mock_selector = True
-    if os.environ.get("VIDEO_CLIPPER_MOCK_MONITOR", "").strip() == "1":
+    if os.environ.get("SLICR_MOCK_MONITOR", "").strip() == "1":
         config.mock_monitor = True
 
     return config

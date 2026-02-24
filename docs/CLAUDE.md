@@ -37,14 +37,14 @@
    - ГРУППА 6 (БД)
 
 Читать:
-   - src/video_clipper/pipeline/transcriber.py
-   - src/video_clipper/gpu/guard.py, src/video_clipper/gpu/monitor.py
-   - src/video_clipper/database/models.py (метод add_transcription)
+   - src/slicr/pipeline/transcriber.py
+   - src/slicr/gpu/guard.py, src/slicr/gpu/monitor.py
+   - src/slicr/database/models.py (метод add_transcription)
 
 НЕ читать:
-   - src/video_clipper/pipeline/selector.py (не относится)
-   - src/video_clipper/bot/* (не относится)
-   - src/video_clipper/services/vk_clips.py (не относится)
+   - src/slicr/pipeline/selector.py (не относится)
+   - src/slicr/bot/* (не относится)
+   - src/slicr/services/vk_clips.py (не относится)
 ```
 
 **Задача:** "Улучшить AI-отбор фрагментов"
@@ -54,13 +54,13 @@
    - ГРУППА 5 (Services: claude_client)
 
 Читать:
-   - src/video_clipper/pipeline/selector.py
-   - src/video_clipper/services/claude_client.py
+   - src/slicr/pipeline/selector.py
+   - src/slicr/services/claude_client.py
    - docs/PROMPTS.md (промпты для Claude AI)
 
 НЕ читать:
-   - src/video_clipper/pipeline/editor.py (не относится)
-   - src/video_clipper/gpu/* (Selector не использует GPU)
+   - src/slicr/pipeline/editor.py (не относится)
+   - src/slicr/gpu/* (Selector не использует GPU)
 ```
 
 ## Архитектура Проекта
@@ -75,11 +75,11 @@ Telegram → Monitor → Downloader → Transcriber → Selector → Editor → 
 ### Ядро (Core)
 
 ```
-src/video_clipper/__main__.py  # Точка входа: python -m video_clipper
-src/video_clipper/config.py    # Загрузка конфигурации
-src/video_clipper/constants.py # Константы (VideoStatus, JobType, JobStatus, Platform)
+src/slicr/__main__.py  # Точка входа: python -m slicr
+src/slicr/config.py    # Загрузка конфигурации
+src/slicr/constants.py # Константы (VideoStatus, JobType, JobStatus, Platform)
 
-src/video_clipper/database/    # Пакет БД (aiosqlite, миксины)
+src/slicr/database/    # Пакет БД (aiosqlite, миксины)
 ├── __init__.py
 ├── connection.py              # _get_connection(), PRAGMA
 ├── models.py                  # CRUD: videos, transcriptions, clips, jobs, publications, sources, settings
@@ -89,7 +89,7 @@ src/video_clipper/database/    # Пакет БД (aiosqlite, миксины)
 ### Pipeline (Конвейер обработки)
 
 ```
-src/video_clipper/pipeline/
+src/slicr/pipeline/
 ├── orchestrator.py           # Координатор: управляет очередью задач
 ├── monitor.py                # Мониторинг Telegram-каналов (Telethon)
 ├── downloader.py             # Скачивание видео из Telegram
@@ -102,7 +102,7 @@ src/video_clipper/pipeline/
 ### GPU Guard (Защита GPU)
 
 ```
-src/video_clipper/gpu/
+src/slicr/gpu/
 ├── guard.py                  # Pre-flight check + Gate Decision
 └── monitor.py                # Runtime watchdog + VRAM мониторинг
 ```
@@ -110,7 +110,7 @@ src/video_clipper/gpu/
 ### Bot (Telegram-бот)
 
 ```
-src/video_clipper/bot/
+src/slicr/bot/
 ├── handlers.py               # Команды: /start, /status, /sources
 ├── moderation.py             # Inline-кнопки модерации (Approve/Reject)
 └── keyboards.py              # Клавиатуры
@@ -119,7 +119,7 @@ src/video_clipper/bot/
 ### Сервисы (Services)
 
 ```
-src/video_clipper/services/
+src/slicr/services/
 ├── claude_client.py          # Claude API для AI-отбора
 ├── vk_clips.py               # VK Clips API
 └── telegram_client.py        # Telethon-обёртка
@@ -128,7 +128,7 @@ src/video_clipper/services/
 ### Утилиты (Utils)
 
 ```
-src/video_clipper/utils/
+src/slicr/utils/
 ├── video.py                  # ffmpeg-хелперы (кроп, конкат, кодеки)
 ├── subtitles.py              # Генерация и рендеринг субтитров
 └── logging_config.py         # Логирование (файл + консоль)
@@ -165,12 +165,12 @@ queued → downloading → downloaded → transcribing → transcribed → selec
 Разработка ведётся на MacBook без NVIDIA GPU:
 
 ```
-VIDEO_CLIPPER_DEV=1          — включает dev-режим
-VIDEO_CLIPPER_MOCK_GPU=1     — mock GPU Guard (без pynvml)
-VIDEO_CLIPPER_MOCK_SELECTOR=1 — mock Claude API (фейковый результат)
+SLICR_DEV=1          — включает dev-режим
+SLICR_MOCK_GPU=1     — mock GPU Guard (без pynvml)
+SLICR_MOCK_SELECTOR=1 — mock Claude API (фейковый результат)
 ```
 
-Запуск: двойной клик по `scripts/dev.command` или `python -m video_clipper`
+Запуск: двойной клик по `scripts/dev.command` или `python -m slicr`
 
 ## Правило целостности документации
 
@@ -229,11 +229,11 @@ pipeline/editor/
 **Обязательно:** `__init__.py` пакета реэкспортирует главный класс, чтобы внешние импорты НЕ ломались:
 ```python
 # pipeline/editor/__init__.py
-from video_clipper.pipeline.editor.crop import VideoEditor
+from slicr.pipeline.editor.crop import VideoEditor
 __all__ = ["VideoEditor"]
 
 # Весь остальной код продолжает работать без изменений:
-from video_clipper.pipeline.editor import VideoEditor
+from slicr.pipeline.editor import VideoEditor
 ```
 
 ---
@@ -246,9 +246,9 @@ from video_clipper.pipeline.editor import VideoEditor
 
 ```python
 # ПРАВИЛЬНО:
-from video_clipper.config import load_config
-from video_clipper.constants import VideoStatus
-from video_clipper.database import Database
+from slicr.config import load_config
+from slicr.constants import VideoStatus
+from slicr.database import Database
 
 # ЗАПРЕЩЕНО:
 from .models import Database          # относительный импорт
@@ -293,19 +293,19 @@ from .models import Database
 
 ```python
 # services/__init__.py
-from video_clipper.services.claude_client import ClaudeClient
-from video_clipper.services.vk_clips import VKClipsClient
-from video_clipper.services.telegram_client import TelegramClientWrapper
+from slicr.services.claude_client import ClaudeClient
+from slicr.services.vk_clips import VKClipsClient
+from slicr.services.telegram_client import TelegramClientWrapper
 __all__ = ["ClaudeClient", "VKClipsClient", "TelegramClientWrapper"]
 ```
 
 **Внешний код импортирует из пакета, не из внутренних модулей:**
 ```python
 # ПРЕДПОЧТИТЕЛЬНО:
-from video_clipper.services import ClaudeClient
+from slicr.services import ClaudeClient
 
 # ДОПУСТИМО, но при рефакторинге может сломаться:
-from video_clipper.services.claude_client import ClaudeClient
+from slicr.services.claude_client import ClaudeClient
 ```
 
 ### Правило 4: Изоляция внешних библиотек
@@ -314,7 +314,7 @@ from video_clipper.services.claude_client import ClaudeClient
 
 ```python
 # ПРАВИЛЬНО — pipeline/selector.py:
-from video_clipper.services import ClaudeClient
+from slicr.services import ClaudeClient
 result = await claude_client.select_moment(transcription)
 
 # ЗАПРЕЩЕНО — pipeline/selector.py:
@@ -332,10 +332,10 @@ client = anthropic.AsyncAnthropic()
 
 ```python
 # ЗАПРЕЩЕНО — pipeline/editor.py:
-from video_clipper.pipeline.selector import SelectorResult  # Прямая связь!
+from slicr.pipeline.selector import SelectorResult  # Прямая связь!
 
 # ПРАВИЛЬНО — pipeline/editor.py:
-from video_clipper.database import Database
+from slicr.database import Database
 clip = await db.get_clip(clip_id)  # Данные из БД
 ```
 
@@ -351,7 +351,7 @@ clip = await db.get_clip(clip_id)  # Данные из БД
 1. Читай MODULE_MAP.md перед каждой задачей
 2. Определяй активные группы модулей
 3. Работай только с релевантными файлами
-4. Используй `src/video_clipper/database/` и `src/video_clipper/constants.py` (они общие)
+4. Используй `src/slicr/database/` и `src/slicr/constants.py` (они общие)
 5. Учитывай dev-режим: все GPU-зависимые модули имеют mock
 6. **Обновляй документацию при каждом структурном изменении**
 

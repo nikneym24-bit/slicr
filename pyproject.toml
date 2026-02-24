@@ -3,7 +3,7 @@ requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "video-clipper"
+name = "slicr"
 version = "0.1.0"
 description = "Автоматический конвейер видеоклипов: от Telegram-канала до VK Клипов"
 requires-python = ">=3.13"

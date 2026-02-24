@@ -50,9 +50,9 @@ if [ ! -f "creds.json" ]; then
 fi
 
 # Dev env vars
-export VIDEO_CLIPPER_DEV=1
-export VIDEO_CLIPPER_MOCK_GPU=1
-export VIDEO_CLIPPER_MOCK_SELECTOR=1
+export SLICR_DEV=1
+export SLICR_MOCK_GPU=1
+export SLICR_MOCK_SELECTOR=1
 
 echo ""
 echo "Режим: DEV (mock GPU, mock Selector)"

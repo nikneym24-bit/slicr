@@ -14,14 +14,14 @@
 ## Архитектура Проекта
 
 ```
-video-clipper/
+slicr/
 │
 ├─ pyproject.toml                         # Конфигурация проекта, зависимости
 ├─ creds.example.json                     # Шаблон конфига
 │
-├─ src/video_clipper/                     # Основной пакет
+├─ src/slicr/                     # Основной пакет
 │  ├─ __init__.py                         # Инициализация пакета
-│  ├─ __main__.py                         # Точка входа (python -m video_clipper)
+│  ├─ __main__.py                         # Точка входа (python -m slicr)
 │  ├─ config.py                           # Загрузка конфигурации (creds.json + env)
 │  ├─ constants.py                        # Enum-ы: VideoStatus, JobType, JobStatus, Platform
 │  │
@@ -90,10 +90,10 @@ video-clipper/
 **Файлы:**
 ```
 pyproject.toml                          # Конфигурация проекта, зависимости
-src/video_clipper/__init__.py           # Инициализация пакета
-src/video_clipper/__main__.py           # Точка входа (python -m video_clipper)
-src/video_clipper/config.py             # Загрузка creds.json + env
-src/video_clipper/constants.py          # Enum-ы и константы
+src/slicr/__init__.py           # Инициализация пакета
+src/slicr/__main__.py           # Точка входа (python -m slicr)
+src/slicr/config.py             # Загрузка creds.json + env
+src/slicr/constants.py          # Enum-ы и константы
 scripts/dev.command                     # macOS лаунчер
 creds.example.json                      # Шаблон конфига
 ```
@@ -111,7 +111,7 @@ creds.example.json                      # Шаблон конфига
 
 **Файлы:**
 ```
-src/video_clipper/database/
+src/slicr/database/
 ├── __init__.py          # Класс Database
 ├── connection.py        # ConnectionMixin, PRAGMA (WAL, foreign_keys)
 ├── models.py            # CRUD: videos, transcriptions, clips, jobs, publications, sources, settings
@@ -119,7 +119,7 @@ src/video_clipper/database/
 ```
 
 **Таблицы:**
-- `videos` — исходные видео
+- `videos` — исходные видео (включает `buffer_message_id` — ID пересланного сообщения в Buffer)
 - `transcriptions` — транскрипции (word-level)
 - `clips` — нарезанные клипы
 - `jobs` — очередь задач
@@ -140,7 +140,7 @@ src/video_clipper/database/
 
 **Файлы:**
 ```
-src/video_clipper/pipeline/
+src/slicr/pipeline/
 ├── orchestrator.py      # Координатор: CPU/GPU/Moderation очереди
 ├── monitor.py           # Telethon: слушает каналы, фильтр видео >= 30 сек
 ├── downloader.py        # Скачивание видео из Telegram
@@ -150,7 +150,7 @@ src/video_clipper/pipeline/
 └── publisher.py         # VK Clips API + Telegram Bot API
 ```
 
-**Зависимости:** `src/video_clipper/database/`, `src/video_clipper/gpu/`, `src/video_clipper/services/`, `src/video_clipper/utils/`
+**Зависимости:** `src/slicr/database/`, `src/slicr/gpu/`, `src/slicr/services/`, `src/slicr/utils/`
 
 ---
 
@@ -163,14 +163,14 @@ src/video_clipper/pipeline/
 
 **Файлы:**
 ```
-src/video_clipper/gpu/
+src/slicr/gpu/
 ├── guard.py             # Pre-flight check: VRAM, процессы, utilization
 └── monitor.py           # Watchdog: мониторинг каждые 2 сек во время whisper
 ```
 
 **Ключевое:**
 - RTX 4060 Ti (8 GB) — разделяемый ресурс с оператором-графиком
-- mock-режим на Mac (VIDEO_CLIPPER_MOCK_GPU=1)
+- mock-режим на Mac (SLICR_MOCK_GPU=1)
 - ALLOW: свободно > 3 GB + нет GPU-процессов + utilization < 30%
 - ABORT: VRAM < 1 GB во время работы → прерываем
 
@@ -187,7 +187,7 @@ src/video_clipper/gpu/
 
 **Файлы:**
 ```
-src/video_clipper/services/
+src/slicr/services/
 ├── claude_client.py     # Claude API: structured output, JSON schema
 ├── vk_clips.py          # VK Clips API: загрузка короткого видео
 └── telegram_client.py   # Telethon: подключение, session management
@@ -206,13 +206,13 @@ src/video_clipper/services/
 
 **Файлы:**
 ```
-src/video_clipper/bot/
+src/slicr/bot/
 ├── handlers.py          # Команды: /start, /help, /status, /sources
 ├── moderation.py        # Inline-кнопки: Approve/Reject/Edit/Schedule
 └── keyboards.py         # Генерация InlineKeyboardMarkup
 ```
 
-**Зависимости:** aiogram, `src/video_clipper/database/`
+**Зависимости:** aiogram, `src/slicr/database/`
 
 ---
 
@@ -225,7 +225,7 @@ src/video_clipper/bot/
 
 **Файлы:**
 ```
-src/video_clipper/utils/
+src/slicr/utils/
 ├── video.py             # ffmpeg-python: кроп, конкат, кодеки
 ├── subtitles.py         # ASS/SRT генерация, word-by-word
 └── logging_config.py    # setup_logging(): файл + консоль, ротация
@@ -247,7 +247,9 @@ tests/
 ├── conftest.py          # Фикстуры pytest
 ├── test_database.py     # Тесты БД
 ├── test_config.py       # Тесты конфига
-└── test_pipeline.py     # Тесты конвейера
+├── test_stage2a.py      # Тесты Stage 2a: Monitor + TelegramClient
+├── test_stage2b.py      # Тесты Stage 2b: Bot + модерация
+└── test_stage2c.py      # Тесты Stage 2c: VideoDownloader
 ```
 
 **Зависимости:** pytest, pytest-asyncio
@@ -290,19 +292,19 @@ tests/
 
 | Модуль | Зависит от |
 |--------|------------|
-| src/video_clipper/pipeline/orchestrator.py | src/video_clipper/database/, src/video_clipper/gpu/, src/video_clipper/pipeline/* |
-| src/video_clipper/pipeline/monitor.py | src/video_clipper/database/, src/video_clipper/services/telegram_client.py |
-| src/video_clipper/pipeline/downloader.py | src/video_clipper/database/, src/video_clipper/services/telegram_client.py |
-| src/video_clipper/pipeline/transcriber.py | src/video_clipper/database/, src/video_clipper/gpu/ |
-| src/video_clipper/pipeline/selector.py | src/video_clipper/database/, src/video_clipper/services/claude_client.py |
-| src/video_clipper/pipeline/editor.py | src/video_clipper/database/, src/video_clipper/utils/video.py, src/video_clipper/utils/subtitles.py |
-| src/video_clipper/pipeline/publisher.py | src/video_clipper/database/, src/video_clipper/services/vk_clips.py, src/video_clipper/bot/ |
-| src/video_clipper/gpu/* | pynvml (опционально) |
-| src/video_clipper/bot/* | aiogram, src/video_clipper/database/ |
-| src/video_clipper/services/claude_client.py | anthropic |
-| src/video_clipper/services/vk_clips.py | vk_api |
-| src/video_clipper/services/telegram_client.py | telethon |
-| src/video_clipper/__main__.py | ВСЁ |
+| src/slicr/pipeline/orchestrator.py | src/slicr/database/, src/slicr/gpu/, src/slicr/pipeline/* |
+| src/slicr/pipeline/monitor.py | src/slicr/database/, src/slicr/services/telegram_client.py |
+| src/slicr/pipeline/downloader.py | src/slicr/database/, src/slicr/services/telegram_client.py |
+| src/slicr/pipeline/transcriber.py | src/slicr/database/, src/slicr/gpu/ |
+| src/slicr/pipeline/selector.py | src/slicr/database/, src/slicr/services/claude_client.py |
+| src/slicr/pipeline/editor.py | src/slicr/database/, src/slicr/utils/video.py, src/slicr/utils/subtitles.py |
+| src/slicr/pipeline/publisher.py | src/slicr/database/, src/slicr/services/vk_clips.py, src/slicr/bot/ |
+| src/slicr/gpu/* | pynvml (опционально) |
+| src/slicr/bot/* | aiogram, src/slicr/database/ |
+| src/slicr/services/claude_client.py | anthropic |
+| src/slicr/services/vk_clips.py | vk_api |
+| src/slicr/services/telegram_client.py | telethon |
+| src/slicr/__main__.py | ВСЁ |
 
 ---
 
@@ -319,13 +321,13 @@ tests/
 - **Тесты** → ГРУППА 8
 
 ### По этапу конвейера:
-- Мониторинг каналов → `src/video_clipper/pipeline/monitor.py` + `src/video_clipper/services/telegram_client.py`
-- Скачивание → `src/video_clipper/pipeline/downloader.py`
-- Транскрибация → `src/video_clipper/pipeline/transcriber.py` + `src/video_clipper/gpu/*`
-- AI-отбор → `src/video_clipper/pipeline/selector.py` + `src/video_clipper/services/claude_client.py`
-- Монтаж → `src/video_clipper/pipeline/editor.py` + `src/video_clipper/utils/video.py` + `src/video_clipper/utils/subtitles.py`
-- Модерация → `src/video_clipper/bot/moderation.py` + `src/video_clipper/bot/keyboards.py`
-- Публикация → `src/video_clipper/pipeline/publisher.py` + `src/video_clipper/services/vk_clips.py`
+- Мониторинг каналов → `src/slicr/pipeline/monitor.py` + `src/slicr/services/telegram_client.py`
+- Скачивание → `src/slicr/pipeline/downloader.py`
+- Транскрибация → `src/slicr/pipeline/transcriber.py` + `src/slicr/gpu/*`
+- AI-отбор → `src/slicr/pipeline/selector.py` + `src/slicr/services/claude_client.py`
+- Монтаж → `src/slicr/pipeline/editor.py` + `src/slicr/utils/video.py` + `src/slicr/utils/subtitles.py`
+- Модерация → `src/slicr/bot/moderation.py` + `src/slicr/bot/keyboards.py`
+- Публикация → `src/slicr/pipeline/publisher.py` + `src/slicr/services/vk_clips.py`
 
 ---
 

@@ -4,9 +4,9 @@
 Ты — исполнитель. Архитектор уже принял все решения. Твоя задача — реализовать код ТОЧНО по спецификации. Не меняй архитектуру, не добавляй своё, не пропускай ничего.
 
 ## Проект
-- Путь: `/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /video-clipper/`
+- Путь: `/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /slicr/`
 - Ветка: `stage-1/scaffolding` (уже создана, ты на ней)
-- GitHub: https://github.com/nikneym24-bit/video-clipper
+- GitHub: https://github.com/nikneym24-bit/slicr
 - Сейчас в репо: .gitignore, README.md, docs/ (CLAUDE.md, MODULE_MAP.md, CONTRIBUTING.md, DEVELOPMENT_STANDARDS.md), .claude/, .claudeignore
 - Среда: macOS (MacBook), Python 3.13, без NVIDIA GPU
 
@@ -20,7 +20,7 @@
 ### Структура файлов (создай ВСЕ):
 
 ```
-video-clipper/
+slicr/
 ├── main.py                         # Точка входа — РЕАЛИЗОВАТЬ
 ├── config.py                       # Конфигурация — РЕАЛИЗОВАТЬ
 ├── constants.py                    # Enum-ы — РЕАЛИЗОВАТЬ
@@ -140,11 +140,11 @@ class Platform(StrEnum):
 - Storage: storage_base="./storage"
 - Source channels: source_channels (list[int])
 - Dev mode: dev_mode (bool), mock_gpu (bool), mock_selector (bool), mock_monitor (bool)
-- DB: db_path (str, default "video_clipper.db")
+- DB: db_path (str, default "slicr.db")
 
 Функция `load_config(path="creds.json") -> Config`:
 - Читает JSON файл
-- Переменные окружения перезаписывают JSON: VIDEO_CLIPPER_DEV=1 → dev_mode=True, VIDEO_CLIPPER_MOCK_GPU=1 → mock_gpu=True, VIDEO_CLIPPER_MOCK_SELECTOR=1 → mock_selector=True, VIDEO_CLIPPER_MOCK_MONITOR=1 → mock_monitor=True
+- Переменные окружения перезаписывают JSON: SLICR_DEV=1 → dev_mode=True, SLICR_MOCK_GPU=1 → mock_gpu=True, SLICR_MOCK_SELECTOR=1 → mock_selector=True, SLICR_MOCK_MONITOR=1 → mock_monitor=True
 - Если файл не найден и dev_mode=True → работает с дефолтами
 - Если файл не найден и dev_mode=False → raise ConfigError с понятным сообщением
 
@@ -224,7 +224,7 @@ __all__ = ["Database"]
 ```python
 def setup_logging(log_level: str = "INFO", log_dir: str = "logs") -> None:
     # Консоль: StreamHandler, формат: [HH:MM:SS] LEVEL module — message
-    # Файл: logs/video-clipper.log, RotatingFileHandler (10 MB, 5 backups)
+    # Файл: logs/slicr.log, RotatingFileHandler (10 MB, 5 backups)
     # Формат файла: [YYYY-MM-DD HH:MM:SS] [LEVEL] [module] message
     # Создаёт log_dir если не существует
 ```
@@ -355,9 +355,9 @@ if [ ! -f "creds.json" ]; then
 fi
 
 # Dev env vars
-export VIDEO_CLIPPER_DEV=1
-export VIDEO_CLIPPER_MOCK_GPU=1
-export VIDEO_CLIPPER_MOCK_SELECTOR=1
+export SLICR_DEV=1
+export SLICR_MOCK_GPU=1
+export SLICR_MOCK_SELECTOR=1
 
 echo ""
 echo "Режим: DEV (mock GPU, mock Selector)"
@@ -479,7 +479,7 @@ pytest-asyncio>=0.24.0
 
 #### tests/test_config.py
 - `test_load_config_from_file` — создать tmp creds.json, загрузить, проверить поля
-- `test_dev_mode_from_env` — установить env VIDEO_CLIPPER_DEV=1, проверить config.dev_mode == True
+- `test_dev_mode_from_env` — установить env SLICR_DEV=1, проверить config.dev_mode == True
 - `test_missing_creds_raises` — без файла и без dev_mode → ConfigError
 
 ---
@@ -494,9 +494,9 @@ pytest-asyncio>=0.24.0
 6. storage/ — с .gitkeep файлами.
 7. После создания ВСЕХ файлов:
    - `chmod +x dev.command`
-   - Запусти тесты: `cd "/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /video-clipper" && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && python -m pytest tests/ -v`
+   - Запусти тесты: `cd "/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /slicr" && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && python -m pytest tests/ -v`
    - Если тесты падают — ИСПРАВЬ.
-   - Запусти `python3 main.py` с VIDEO_CLIPPER_DEV=1 — убедись что стартует без ошибок, покажи вывод.
+   - Запусти `python3 main.py` с SLICR_DEV=1 — убедись что стартует без ошибок, покажи вывод.
 
 ## Критерии приёмки
 

@@ -5,8 +5,8 @@
 ### 1. Клонирование и настройка
 
 ```bash
-git clone git@github.com:nikneym24-bit/video-clipper.git
-cd video-clipper
+git clone git@github.com:nikneym24-bit/slicr.git
+cd slicr
 ```
 
 ### 2. Запуск в dev-режиме (macOS)
@@ -21,7 +21,7 @@ cd video-clipper
 - Установит зависимости и пакет (pip install -e .)
 - Создаст storage-директории
 - Установит dev-переменные окружения
-- Запустит python -m video_clipper
+- Запустит python -m slicr
 
 ### 3. Ручная настройка
 
@@ -39,10 +39,10 @@ cp creds.example.json creds.json
 
 ```bash
 # Dev-режим (mock GPU, mock Selector)
-VIDEO_CLIPPER_DEV=1 python -m video_clipper
+SLICR_DEV=1 python -m slicr
 
 # Production-режим (реальный GPU, реальный Claude API)
-python -m video_clipper
+python -m slicr
 ```
 
 ---
@@ -95,13 +95,13 @@ Telegram → Monitor → Downloader → Transcriber → Selector → Editor → 
 
 ### Ключевые модули
 
-- `src/video_clipper/pipeline/orchestrator.py` — координатор конвейера
-- `src/video_clipper/pipeline/transcriber.py` — транскрибация (faster-whisper)
-- `src/video_clipper/pipeline/selector.py` — AI-отбор фрагмента (Claude API)
-- `src/video_clipper/pipeline/editor.py` — монтаж (ffmpeg: кроп 9:16 + субтитры)
-- `src/video_clipper/gpu/guard.py` — защита GPU от крашей оператора
-- `src/video_clipper/bot/moderation.py` — inline-кнопки модерации
-- `src/video_clipper/services/claude_client.py` — Claude API клиент
+- `src/slicr/pipeline/orchestrator.py` — координатор конвейера
+- `src/slicr/pipeline/transcriber.py` — транскрибация (faster-whisper)
+- `src/slicr/pipeline/selector.py` — AI-отбор фрагмента (Claude API)
+- `src/slicr/pipeline/editor.py` — монтаж (ffmpeg: кроп 9:16 + субтитры)
+- `src/slicr/gpu/guard.py` — защита GPU от крашей оператора
+- `src/slicr/bot/moderation.py` — inline-кнопки модерации
+- `src/slicr/services/claude_client.py` — Claude API клиент
 
 ### Критически важно
 
@@ -157,7 +157,7 @@ git push origin fix/bug-description
 
 ### Где добавлять константы?
 
-В `src/video_clipper/constants.py` в соответствующий StrEnum:
+В `src/slicr/constants.py` в соответствующий StrEnum:
 - `VideoStatus` — статусы видео в конвейере
 - `JobType` — типы задач
 - `JobStatus` — статусы задач
@@ -165,15 +165,15 @@ git push origin fix/bug-description
 
 ### Где добавлять новые методы БД?
 
-В `src/video_clipper/database/models.py`. Методы автоматически доступны через `Database` класс.
+В `src/slicr/database/models.py`. Методы автоматически доступны через `Database` класс.
 
 ### Как тестировать на Mac без GPU?
 
 Установите переменные окружения:
 ```bash
-export VIDEO_CLIPPER_DEV=1
-export VIDEO_CLIPPER_MOCK_GPU=1
-export VIDEO_CLIPPER_MOCK_SELECTOR=1
+export SLICR_DEV=1
+export SLICR_MOCK_GPU=1
+export SLICR_MOCK_SELECTOR=1
 ```
 
 Или просто используйте `./scripts/dev.command`.

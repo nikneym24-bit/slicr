@@ -1,4 +1,4 @@
-# Video Clipper
+# Slicr
 
 Автоматический конвейер видеоклипов: от Telegram-канала до VK Клипов.
 
@@ -10,7 +10,7 @@
 
 # Или вручную:
 pip install -e .
-python -m video_clipper
+python -m slicr
 ```
 
 ## Документация

@@ -8,8 +8,8 @@ AI-отбор лучшего момента из транскрипции.
 """
 
 import logging
-from video_clipper.config import Config
-from video_clipper.database import Database
+from slicr.config import Config
+from slicr.database import Database
 
 logger = logging.getLogger(__name__)
 

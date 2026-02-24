@@ -5,6 +5,24 @@
     "admin_id": 0,
     "tech_channel_id": 0,
     "target_channel_id": 0,
+    "buffer_channel_id": 0,
+
+    "session_string": "",
+
+    "proxy": null,
+    "_proxy_socks5_example": {
+        "type": "socks5",
+        "host": "1.2.3.4",
+        "port": 1080,
+        "username": "user",
+        "password": "pass"
+    },
+    "_proxy_mtproto_example": {
+        "type": "mtproto",
+        "host": "1.2.3.4",
+        "port": 443,
+        "secret": "dd..."
+    },
 
     "claude_api_key": "sk-ant-YOUR_KEY",
     "claude_model": "claude-sonnet-4-20250514",
@@ -13,6 +31,15 @@
     "vk_group_id": 0,
 
     "source_channels": [],
+
+    "max_concurrent_downloads": 1,
+    "max_file_size": 2147483648,
+
+    "cleanup_enabled": true,
+    "cleanup_after_hours": 48,
+
+    "filter_keywords": [],
+    "filter_stopwords": [],
 
     "dev_mode": true,
     "mock_gpu": true,

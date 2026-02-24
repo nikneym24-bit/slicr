@@ -9,8 +9,8 @@ GPU Guard — защита GPU от конфликтов с оператором
 """
 
 import logging
-from video_clipper.config import Config
-from video_clipper.database import Database
+from slicr.config import Config
+from slicr.database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class GPUGuard:
     Защита GPU от конфликтов. Заглушка для этапа 2.
 
     В продакшене использует pynvml для проверки VRAM и GPU-процессов.
-    На macOS работает в mock-режиме (VIDEO_CLIPPER_MOCK_GPU=1).
+    На macOS работает в mock-режиме (SLICR_MOCK_GPU=1).
     """
 
     def __init__(self, config: Config, db: Database) -> None:

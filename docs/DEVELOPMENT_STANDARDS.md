@@ -71,14 +71,14 @@
 ### Принципы организации файлов
 
 1. **Один файл — одна ответственность**
-   - `src/video_clipper/pipeline/transcriber.py` — только транскрибация
-   - `src/video_clipper/pipeline/editor.py` — только монтаж
-   - `src/video_clipper/bot/moderation.py` — только модерация
+   - `src/slicr/pipeline/transcriber.py` — только транскрибация
+   - `src/slicr/pipeline/editor.py` — только монтаж
+   - `src/slicr/bot/moderation.py` — только модерация
 
 2. **Централизация общего кода**
-   - Константы → `src/video_clipper/constants.py`
-   - Клавиатуры → `src/video_clipper/bot/keyboards.py`
-   - Внешние API → `src/video_clipper/services/`
+   - Константы → `src/slicr/constants.py`
+   - Клавиатуры → `src/slicr/bot/keyboards.py`
+   - Внешние API → `src/slicr/services/`
 
 3. **Mock-режим для разработки**
    - Каждый GPU-зависимый модуль имеет mock
@@ -96,7 +96,7 @@
 await db.update_video_status(video_id, 'transcribed')
 
 # ХОРОШО — enum:
-from video_clipper.constants import VideoStatus
+from slicr.constants import VideoStatus
 await db.update_video_status(video_id, VideoStatus.TRANSCRIBED)
 ```
 
@@ -147,14 +147,14 @@ logger.error(f"Ошибка монтажа video #{video_id}: {e}")
 
 ## Работа с данными
 
-### База данных (src/video_clipper/database/)
+### База данных (src/slicr/database/)
 
 **Паттерн:** `ConnectionMixin` с кэшированным соединением.
 
 ```python
-from video_clipper.database import Database
+from slicr.database import Database
 
-db = Database("video_clipper.db")
+db = Database("slicr.db")
 await db.init_tables()
 ```
 
@@ -197,8 +197,8 @@ except Exception as e:
 
 ### Приоритеты
 
-1. **Высокий:** `src/video_clipper/database/`, `src/video_clipper/config.py`, `src/video_clipper/pipeline/selector.py`
-2. **Средний:** `src/video_clipper/pipeline/editor.py`, `src/video_clipper/utils/`, `src/video_clipper/bot/moderation.py`
+1. **Высокий:** `src/slicr/database/`, `src/slicr/config.py`, `src/slicr/pipeline/selector.py`
+2. **Средний:** `src/slicr/pipeline/editor.py`, `src/slicr/utils/`, `src/slicr/bot/moderation.py`
 3. **Низкий:** Integration тесты
 
 ### Запуск тестов
@@ -244,10 +244,10 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 
 | Переменная | Описание |
 |-----------|----------|
-| `VIDEO_CLIPPER_DEV=1` | Включает dev-режим |
-| `VIDEO_CLIPPER_MOCK_GPU=1` | Mock GPU Guard (без pynvml) |
-| `VIDEO_CLIPPER_MOCK_SELECTOR=1` | Mock Claude API |
-| `VIDEO_CLIPPER_MOCK_MONITOR=1` | Не подключается к Telegram |
+| `SLICR_DEV=1` | Включает dev-режим |
+| `SLICR_MOCK_GPU=1` | Mock GPU Guard (без pynvml) |
+| `SLICR_MOCK_SELECTOR=1` | Mock Claude API |
+| `SLICR_MOCK_MONITOR=1` | Не подключается к Telegram |
 
 ### Запуск
 

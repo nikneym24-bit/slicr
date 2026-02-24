@@ -1,5 +1,5 @@
 import pytest
-from video_clipper.database import Database
+from slicr.database import Database
 
 
 @pytest.mark.asyncio

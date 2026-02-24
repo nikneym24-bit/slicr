@@ -4,7 +4,7 @@
 Ты — исполнитель. Архитектор принял решение перейти на `src/` layout. Твоя задача — перенести файлы ТОЧНО по схеме, обновить все импорты, убедиться что тесты проходят и main запускается.
 
 ## Проект
-- Путь: `/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /video-clipper/`
+- Путь: `/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /slicr/`
 - Ветка: `stage-1/scaffolding` (ты на ней)
 - Среда: macOS, Python 3.13, venv уже создан в `.venv/`
 
@@ -15,7 +15,7 @@
 ## Текущая структура (ПЛОСКАЯ, всё в корне)
 
 ```
-video-clipper/
+slicr/
 ├── main.py
 ├── config.py
 ├── constants.py
@@ -42,12 +42,12 @@ video-clipper/
 ## Целевая структура (src/ layout)
 
 ```
-video-clipper/
+slicr/
 │
 ├── src/                            # Весь исполняемый код
-│   └── video_clipper/              # Python-пакет
+│   └── slicr/              # Python-пакет
 │       ├── __init__.py             # __version__ = "0.1.0"
-│       ├── __main__.py             # Точка входа: python -m video_clipper
+│       ├── __main__.py             # Точка входа: python -m slicr
 │       ├── config.py               # ← из корня
 │       ├── constants.py            # ← из корня
 │       │
@@ -135,7 +135,7 @@ requires = ["setuptools>=75.0"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
-name = "video-clipper"
+name = "slicr"
 version = "0.1.0"
 description = "Автоматический конвейер видеоклипов: от Telegram-канала до VK Клипов"
 requires-python = ">=3.13"
@@ -148,27 +148,27 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 ```
 
-### Шаг 2: Создать src/video_clipper/
+### Шаг 2: Создать src/slicr/
 
 ```bash
-mkdir -p src/video_clipper
+mkdir -p src/slicr
 ```
 
 ### Шаг 3: Перенести модули
 
 Перенести (git mv или обычный mv):
-- `main.py` → `src/video_clipper/__main__.py`
-- `config.py` → `src/video_clipper/config.py`
-- `constants.py` → `src/video_clipper/constants.py`
-- `pipeline/` → `src/video_clipper/pipeline/`
-- `gpu/` → `src/video_clipper/gpu/`
-- `database/` → `src/video_clipper/database/`
-- `bot/` → `src/video_clipper/bot/`
-- `services/` → `src/video_clipper/services/`
-- `utils/` → `src/video_clipper/utils/`
+- `main.py` → `src/slicr/__main__.py`
+- `config.py` → `src/slicr/config.py`
+- `constants.py` → `src/slicr/constants.py`
+- `pipeline/` → `src/slicr/pipeline/`
+- `gpu/` → `src/slicr/gpu/`
+- `database/` → `src/slicr/database/`
+- `bot/` → `src/slicr/bot/`
+- `services/` → `src/slicr/services/`
+- `utils/` → `src/slicr/utils/`
 - `dev.command` → `scripts/dev.command`
 
-### Шаг 4: Создать src/video_clipper/__init__.py
+### Шаг 4: Создать src/slicr/__init__.py
 
 ```python
 """Video Clipper — автоматический конвейер видеоклипов."""
@@ -189,29 +189,29 @@ from pipeline.orchestrator import PipelineOrchestrator
 # ...
 
 # СТАЛО:
-from video_clipper.config import load_config
-from video_clipper.database import Database
-from video_clipper.utils.logging_config import setup_logging
-from video_clipper.pipeline.orchestrator import PipelineOrchestrator
+from slicr.config import load_config
+from slicr.database import Database
+from slicr.utils.logging_config import setup_logging
+from slicr.pipeline.orchestrator import PipelineOrchestrator
 # ...
 ```
 
 ### Шаг 6: Обновить ВСЕ внутренние импорты
 
-Во всех файлах внутри `src/video_clipper/` заменить импорты:
+Во всех файлах внутри `src/slicr/` заменить импорты:
 
 | Было | Стало |
 |------|-------|
-| `from config import ...` | `from video_clipper.config import ...` |
-| `from constants import ...` | `from video_clipper.constants import ...` |
-| `from database import ...` | `from video_clipper.database import ...` |
-| `from database.connection import ...` | `from video_clipper.database.connection import ...` |
-| `from database.models import ...` | `from video_clipper.database.models import ...` |
-| `from utils.logging_config import ...` | `from video_clipper.utils.logging_config import ...` |
-| `from pipeline.* import ...` | `from video_clipper.pipeline.* import ...` |
-| `from gpu.* import ...` | `from video_clipper.gpu.* import ...` |
-| `from bot.* import ...` | `from video_clipper.bot.* import ...` |
-| `from services.* import ...` | `from video_clipper.services.* import ...` |
+| `from config import ...` | `from slicr.config import ...` |
+| `from constants import ...` | `from slicr.constants import ...` |
+| `from database import ...` | `from slicr.database import ...` |
+| `from database.connection import ...` | `from slicr.database.connection import ...` |
+| `from database.models import ...` | `from slicr.database.models import ...` |
+| `from utils.logging_config import ...` | `from slicr.utils.logging_config import ...` |
+| `from pipeline.* import ...` | `from slicr.pipeline.* import ...` |
+| `from gpu.* import ...` | `from slicr.gpu.* import ...` |
+| `from bot.* import ...` | `from slicr.bot.* import ...` |
+| `from services.* import ...` | `from slicr.services.* import ...` |
 
 **ВАЖНО:** Проверь КАЖДЫЙ .py файл. Используй grep чтобы найти все импорты.
 
@@ -225,8 +225,8 @@ from database import Database
 from config import Config, load_config, ConfigError
 
 # СТАЛО:
-from video_clipper.database import Database
-from video_clipper.config import Config, load_config, ConfigError
+from slicr.database import Database
+from slicr.config import Config, load_config, ConfigError
 ```
 
 ### Шаг 8: Обновить scripts/dev.command
@@ -236,7 +236,7 @@ from video_clipper.config import Config, load_config, ConfigError
 # dev.command — Video Clipper Dev Launcher
 # Двойной клик в Finder для запуска
 
-# Переход в корень проекта (scripts/ → video-clipper/)
+# Переход в корень проекта (scripts/ → slicr/)
 cd "$(dirname "$0")/.."
 
 echo "==============================="
@@ -284,9 +284,9 @@ if [ ! -f "creds.json" ]; then
 fi
 
 # Dev env vars
-export VIDEO_CLIPPER_DEV=1
-export VIDEO_CLIPPER_MOCK_GPU=1
-export VIDEO_CLIPPER_MOCK_SELECTOR=1
+export SLICR_DEV=1
+export SLICR_MOCK_GPU=1
+export SLICR_MOCK_SELECTOR=1
 
 echo ""
 echo "Режим: DEV (mock GPU, mock Selector)"
@@ -294,7 +294,7 @@ echo "==============================="
 echo ""
 
 # Запуск через пакет
-python3 -m video_clipper
+python3 -m slicr
 
 echo ""
 read -p "Нажмите Enter для выхода..."
@@ -313,7 +313,7 @@ read -p "Нажмите Enter для выхода..."
 
 # Или вручную:
 pip install -e .
-python -m video_clipper
+python -m slicr
 ```
 
 ### Шаг 10: Обновить .gitignore
@@ -334,21 +334,21 @@ src/*.egg-info/
 Согласно правилу целостности документации из CLAUDE.md, при структурном изменении ты ОБЯЗАН обновить все затронутые документы. Это рефакторинг всей структуры — затронуто ВСЁ.
 
 **12.1. docs/MODULE_MAP.md** — ПОЛНОСТЬЮ переписать дерево проекта:
-- Все пути теперь через `src/video_clipper/`
+- Все пути теперь через `src/slicr/`
 - Обновить каждую группу модулей — пути к файлам
 - Обновить матрицу зависимостей
 - Обновить секцию "Быстрый поиск"
 - MODULE_MAP.md — это **утверждённая структура**, новые файлы создаются ТОЛЬКО по ней
 
 **12.2. docs/CLAUDE.md** — обновить:
-- Секция "Архитектура Проекта" — все пути через `src/video_clipper/`
+- Секция "Архитектура Проекта" — все пути через `src/slicr/`
 - Секция "Dev-режим" — путь к dev.command теперь `scripts/dev.command`
 - Примеры задач — пути к файлам
 - НЕ трогать секции "Правило целостности документации" и "Правило утверждённой структуры" — они уже актуальны
 
 **12.3. docs/CONTRIBUTING.md** — обновить:
-- Секция "Быстрый старт" — путь к dev.command, команда запуска `python -m video_clipper`
-- Секция "Запуск" — `python -m video_clipper` вместо `python3 main.py`
+- Секция "Быстрый старт" — путь к dev.command, команда запуска `python -m slicr`
+- Секция "Запуск" — `python -m slicr` вместо `python3 main.py`
 - Секция "Архитектура (кратко)" — ключевые модули с новыми путями
 - Секция FAQ — обновить пути
 
@@ -376,12 +376,12 @@ src/*.egg-info/
 ### Шаг 15: Переустановить и протестировать
 
 ```bash
-cd "/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /video-clipper"
+cd "/Users/dvofis/Desktop/Програмирование/Завод-нарезчик видео /slicr"
 source .venv/bin/activate
 rm -f .venv/.deps_installed
 pip install -e .
 python -m pytest tests/ -v
-VIDEO_CLIPPER_DEV=1 VIDEO_CLIPPER_MOCK_GPU=1 VIDEO_CLIPPER_MOCK_SELECTOR=1 timeout 3 python -m video_clipper; true
+SLICR_DEV=1 SLICR_MOCK_GPU=1 SLICR_MOCK_SELECTOR=1 timeout 3 python -m slicr; true
 ```
 
 ---
@@ -392,22 +392,22 @@ VIDEO_CLIPPER_DEV=1 VIDEO_CLIPPER_MOCK_GPU=1 VIDEO_CLIPPER_MOCK_SELECTOR=1 timeo
 2. Используй `git mv` для переноса файлов (сохраняет историю git).
 3. Проверь КАЖДЫЙ .py файл на импорты — ни один старый импорт не должен остаться.
 4. После переноса — тесты ОБЯЗАНЫ проходить (11/11).
-5. `python -m video_clipper` с dev-флагами должен стартовать без ошибок.
+5. `python -m slicr` с dev-флагами должен стартовать без ошибок.
 6. `chmod +x scripts/dev.command` не забудь.
 7. Не трогай содержимое docs/PROMPTS/ — это архив заданий.
 
 ## Критерии приёмки
 
 ### Код:
-1. Все .py модули в `src/video_clipper/` — в корне проекта НЕТ ни одного .py модуля
+1. Все .py модули в `src/slicr/` — в корне проекта НЕТ ни одного .py модуля
 2. `pyproject.toml` создан, `pip install -e .` работает
-3. `python -m video_clipper` запускается в dev-режиме
+3. `python -m slicr` запускается в dev-режиме
 4. `python -m pytest tests/ -v` — 11/11 passed
 5. `scripts/dev.command` запускается (chmod +x)
 6. Старые директории (pipeline/, gpu/, database/ и т.д.) удалены из корня
 
 ### Документация (ОБЯЗАТЕЛЬНО):
-7. **docs/MODULE_MAP.md** — дерево проекта отражает НОВУЮ структуру src/video_clipper/, все пути актуальны
+7. **docs/MODULE_MAP.md** — дерево проекта отражает НОВУЮ структуру src/slicr/, все пути актуальны
 8. **docs/CLAUDE.md** — секция архитектуры обновлена с новыми путями
 9. **docs/CONTRIBUTING.md** — команды запуска и пути обновлены
 10. **docs/DEVELOPMENT_STANDARDS.md** — пути и команды обновлены

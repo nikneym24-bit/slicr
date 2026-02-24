@@ -1,6 +1,7 @@
 # Telegram
 aiogram>=3.20.0
 telethon>=1.40.0
+pysocks>=1.7.1
 
 # AI
 anthropic>=0.40.0

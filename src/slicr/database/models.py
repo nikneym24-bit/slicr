@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from video_clipper.database.connection import ConnectionMixin
+from slicr.database.connection import ConnectionMixin
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ class Database(ConnectionMixin):
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     source_chat_id INTEGER NOT NULL,
                     source_message_id INTEGER NOT NULL,
+                    buffer_message_id INTEGER,
                     file_path TEXT,
                     file_size INTEGER,
                     duration REAL,
@@ -440,4 +441,77 @@ class Database(ConnectionMixin):
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
                 """,
                 (key, value),
+            )
+
+    # ------------------------------------------------------------------
+    # Sources (дополнительные методы)
+    # ------------------------------------------------------------------
+
+    async def remove_source(self, chat_id: int) -> bool:
+        """Удалить канал-источник. Возвращает True если удалён."""
+        async with self._get_connection() as conn:
+            cursor = await conn.execute(
+                "DELETE FROM sources WHERE chat_id = ?", (chat_id,)
+            )
+            return cursor.rowcount > 0
+
+    async def increment_video_count(self, chat_id: int) -> None:
+        """Увеличить счётчик видео для канала-источника."""
+        async with self._get_connection() as conn:
+            await conn.execute(
+                "UPDATE sources SET video_count = video_count + 1 WHERE chat_id = ?",
+                (chat_id,),
+            )
+
+    # ------------------------------------------------------------------
+    # Videos (дополнительные методы для Stage 2b)
+    # ------------------------------------------------------------------
+
+    async def get_video_counts_by_status(self) -> dict[str, int]:
+        """Количество видео по статусам. Для /status команды."""
+        async with self._get_connection() as conn:
+            cursor = await conn.execute(
+                "SELECT status, COUNT(*) as cnt FROM videos GROUP BY status"
+            )
+            rows = await cursor.fetchall()
+            return {row["status"]: row["cnt"] for row in rows}
+
+    async def get_pending_jobs_count(self) -> int:
+        """Количество задач в очереди (status=queued)."""
+        async with self._get_connection() as conn:
+            cursor = await conn.execute(
+                "SELECT COUNT(*) as cnt FROM jobs WHERE status = 'queued'"
+            )
+            row = await cursor.fetchone()
+            return row["cnt"] if row else 0
+
+    async def update_video_buffer_message(self, video_id: int, buffer_message_id: int) -> None:
+        """Сохранить ID сообщения в Buffer-канале."""
+        async with self._get_connection() as conn:
+            await conn.execute(
+                "UPDATE videos SET buffer_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (buffer_message_id, video_id),
+            )
+
+    async def get_videos_for_cleanup(self, hours: int) -> list[dict]:
+        """Видео для авто-очистки: финальный статус + файл есть + старше N часов."""
+        async with self._get_connection() as conn:
+            cursor = await conn.execute(
+                """
+                SELECT id, file_path FROM videos
+                WHERE status IN ('published', 'rejected', 'failed', 'skipped')
+                AND file_path IS NOT NULL
+                AND updated_at < datetime('now', ? || ' hours')
+                """,
+                (f"-{hours}",),
+            )
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def clear_video_file(self, video_id: int) -> None:
+        """Очистить путь к файлу видео (после удаления файла)."""
+        async with self._get_connection() as conn:
+            await conn.execute(
+                "UPDATE videos SET file_path = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (video_id,),
             )
