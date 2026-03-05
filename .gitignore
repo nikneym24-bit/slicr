@@ -11,6 +11,7 @@ storage/temp/
 *.db
 *.db-journal
 *.db-wal
+*.db-shm
 
 # Logs
 logs/
@@ -26,6 +27,12 @@ env/
 
 # Telegram
 *.session
+
+# Cloudflare
+.wrangler/
+
+# Claude Code
+.claude/
 
 # IDE
 .idea/
