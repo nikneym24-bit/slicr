@@ -21,6 +21,10 @@ class Config:
     # Claude API
     claude_api_key: str = ""
     claude_model: str = "claude-sonnet-4-20250514"
+    claude_proxy_url: str = ""
+    # URL прокси для Claude API (Cloudflare Worker)
+    # Пример: "https://ai-proxy.nikneym24.workers.dev/claude"
+    # Если пусто — прямое подключение к api.anthropic.com
 
     # VK
     vk_access_token: str = ""
@@ -127,6 +131,7 @@ def load_config(path: str = "creds.json") -> Config:
         target_channel_id=int(data.get("target_channel_id", 0)),
         claude_api_key=data.get("claude_api_key", ""),
         claude_model=data.get("claude_model", "claude-sonnet-4-20250514"),
+        claude_proxy_url=data.get("claude_proxy_url", ""),
         vk_access_token=data.get("vk_access_token", ""),
         vk_group_id=int(data.get("vk_group_id", 0)),
         min_video_duration=int(data.get("min_video_duration", 30)),

@@ -32,41 +32,48 @@ slicr/
 │  │  └─ migrations.py                      # Автомиграции
 │  │
 │  ├─ pipeline/                           # Конвейер обработки
-│  │  ├─ orchestrator.py                    # Координатор: CPU/GPU/Moderation очереди
-│  │  ├─ monitor.py                         # Мониторинг Telegram-каналов (Telethon)
-│  │  ├─ downloader.py                      # Скачивание видео
-│  │  ├─ transcriber.py                     # STT: faster-whisper (GPU)
-│  │  ├─ selector.py                        # AI-отбор: Claude API
-│  │  ├─ editor.py                          # Монтаж: ffmpeg (кроп 9:16 + субтитры)
-│  │  └─ publisher.py                       # Публикация: VK Clips + Telegram
+│  │  ├─ orchestrator.py                    # Координатор: CPU/GPU/Moderation очереди [ЗАГЛУШКА]
+│  │  ├─ monitor.py                         # ✅ Мониторинг Telegram-каналов (Telethon)
+│  │  ├─ downloader.py                      # ✅ Скачивание видео
+│  │  ├─ transcriber.py                     # STT: faster-whisper (GPU) [ЗАГЛУШКА]
+│  │  ├─ selector.py                        # ✅ AI-отбор: Claude API (реализован)
+│  │  ├─ editor.py                          # Монтаж: ffmpeg (кроп 9:16 + субтитры) [ЗАГЛУШКА]
+│  │  └─ publisher.py                       # Публикация: VK Clips + Telegram [ЗАГЛУШКА]
 │  │
 │  ├─ gpu/                                # Управление GPU
-│  │  ├─ guard.py                           # GPU Guard: pre-flight + gate decision
-│  │  └─ monitor.py                         # Watchdog: VRAM, процессы, температура
+│  │  ├─ guard.py                           # GPU Guard: pre-flight + gate decision [ЗАГЛУШКА]
+│  │  └─ monitor.py                         # Watchdog: VRAM, процессы, температура [ЗАГЛУШКА]
 │  │
 │  ├─ bot/                                # Telegram-бот
-│  │  ├─ handlers.py                        # Команды: /start, /status, /sources
-│  │  ├─ moderation.py                      # Inline-кнопки: Approve/Reject
-│  │  └─ keyboards.py                       # Генерация клавиатур
+│  │  ├─ handlers.py                        # ✅ Команды: /start, /status, /sources
+│  │  ├─ moderation.py                      # ✅ Inline-кнопки: Approve/Reject
+│  │  └─ keyboards.py                       # ✅ Генерация клавиатур
 │  │
 │  ├─ services/                           # Внешние сервисы
-│  │  ├─ claude_client.py                   # Claude API клиент
-│  │  ├─ vk_clips.py                        # VK Clips API
-│  │  └─ telegram_client.py                 # Telethon-обёртка
+│  │  ├─ claude_client.py                   # ✅ Claude API клиент (aiohttp + CF Worker прокси)
+│  │  ├─ vk_clips.py                        # VK Clips API [ЗАГЛУШКА]
+│  │  └─ telegram_client.py                 # ✅ Telethon-обёртка
 │  │
 │  └─ utils/                              # Утилиты
-│     ├─ video.py                           # ffmpeg-хелперы
-│     ├─ subtitles.py                       # Генерация субтитров
-│     └─ logging_config.py                  # Настройка логирования
+│     ├─ video.py                           # ffmpeg-хелперы [ЗАГЛУШКА]
+│     ├─ subtitles.py                       # Генерация субтитров [ЗАГЛУШКА]
+│     └─ logging_config.py                  # ✅ Настройка логирования
+│
+├─ cloudflare/                            # Cloudflare Workers
+│  ├─ claude-proxy-worker.js                # ✅ Универсальный AI API прокси (/claude, /gemini, /groq)
+│  └─ wrangler.toml                         # Конфиг деплоя Workers
 │
 ├─ scripts/
-│  └─ dev.command                         # macOS лаунчер
+│  ├─ dev.command                           # macOS лаунчер
+│  └─ generate_session.py                   # Генерация Telethon session string
 │
 ├─ tests/                                 # Тесты (в корне проекта)
-│  ├─ conftest.py
-│  ├─ test_database.py
-│  ├─ test_config.py
-│  └─ test_pipeline.py
+│  ├─ conftest.py                           # ✅ Фикстуры pytest
+│  ├─ test_database.py                      # ✅ Тесты БД
+│  ├─ test_config.py                        # ✅ Тесты конфига
+│  ├─ test_stage2a.py                       # ✅ Monitor + TelegramClient
+│  ├─ test_stage2b.py                       # ✅ Bot + модерация
+│  └─ test_stage2c.py                       # ✅ VideoDownloader
 │
 ├─ docs/                                  # Документация (в корне проекта)
 │
@@ -188,12 +195,16 @@ src/slicr/gpu/
 **Файлы:**
 ```
 src/slicr/services/
-├── claude_client.py     # Claude API: structured output, JSON schema
-├── vk_clips.py          # VK Clips API: загрузка короткого видео
-└── telegram_client.py   # Telethon: подключение, session management
+├── claude_client.py     # ✅ Claude API: aiohttp, CF Worker прокси, rate limiter, retry
+├── vk_clips.py          # VK Clips API: загрузка короткого видео [ЗАГЛУШКА]
+└── telegram_client.py   # ✅ Telethon: подключение, session management
 ```
 
-**Зависимости:** anthropic, vk_api, telethon
+**Claude API прокси:** Cloudflare Worker (`cloudflare/claude-proxy-worker.js`)
+- Маршруты: `/claude/...`, `/gemini/...`, `/groq/...`
+- URL: настраивается через `claude_proxy_url` в creds.json
+
+**Зависимости:** aiohttp, telethon
 
 ---
 
@@ -301,7 +312,7 @@ tests/
 | src/slicr/pipeline/publisher.py | src/slicr/database/, src/slicr/services/vk_clips.py, src/slicr/bot/ |
 | src/slicr/gpu/* | pynvml (опционально) |
 | src/slicr/bot/* | aiogram, src/slicr/database/ |
-| src/slicr/services/claude_client.py | anthropic |
+| src/slicr/services/claude_client.py | aiohttp (+ Cloudflare Worker прокси) |
 | src/slicr/services/vk_clips.py | vk_api |
 | src/slicr/services/telegram_client.py | telethon |
 | src/slicr/__main__.py | ВСЁ |
@@ -331,5 +342,5 @@ tests/
 
 ---
 
-**Версия:** 2.0
-**Последнее обновление:** 2026-02-23
+**Версия:** 2.1
+**Последнее обновление:** 2026-03-05
