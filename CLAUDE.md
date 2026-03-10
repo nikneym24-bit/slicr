@@ -7,9 +7,17 @@
 
 ---
 
+## Навигация
+
+- **[docs/MODULE_MAP.md](docs/MODULE_MAP.md)** — карта всех модулей. Читай при структурных задачах, навигации в незнакомые пакеты или если затронуто 3+ модулей. Не нужен для точечных правок в одном файле.
+- **[docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md)** — Orchestrator-Worker v3, роли моделей, порядок фаз.
+- **[docs/DEVELOPMENT_STANDARDS.md](docs/DEVELOPMENT_STANDARDS.md)** — стандарты кода, статусы, паттерны.
+
+---
+
 ## ГЛАВНОЕ ПРАВИЛО
 
-**ВСЕГДА начинай работу с чтения [MODULE_MAP.md](MODULE_MAP.md)**
+**ВСЕГДА начинай работу с чтения [docs/MODULE_MAP.md](docs/MODULE_MAP.md)**
 
 Этот файл содержит:
 - Карту всех модулей проекта
@@ -19,13 +27,11 @@
 
 ## Протокол Работы
 
-### 1. Получил задачу
-```
-1. Прочитай MODULE_MAP.md
-2. Определи активные группы модулей
-3. Работай ТОЛЬКО с файлами из этих групп
-4. Нужен файл вне группы? → Обоснуй необходимость
-```
+### При получении задачи:
+
+1. Определи затронутые уровни и группы модулей (из контекста или MODULE_MAP)
+2. Работай ТОЛЬКО с файлами из этих групп
+3. Нужен файл вне группы — обоснуй необходимость
 
 ### 2. Примеры задач
 
@@ -79,7 +85,7 @@ src/slicr/__main__.py  # Точка входа: python -m slicr
 src/slicr/config.py    # Загрузка конфигурации
 src/slicr/constants.py # Константы (VideoStatus, JobType, JobStatus, Platform)
 
-src/slicr/database/    # Пакет БД (aiosqlite, миксины)
+src/slicr/database/    # Пакет БД (aiosqlite)
 ├── __init__.py
 ├── connection.py              # _get_connection(), PRAGMA
 ├── models.py                  # CRUD: videos, transcriptions, clips, jobs, publications, sources, settings
@@ -125,12 +131,36 @@ src/slicr/services/
 └── telegram_client.py        # Telethon-обёртка
 ```
 
+### GUI (Десктопный интерфейс)
+
+```
+src/slicr/gui/
+├── __init__.py               # Re-export SlicApp
+├── app.py                    # Главное окно (CustomTkinter, 900x600)
+├── workers.py                # ProcessingWorker (threading)
+└── frames/
+    ├── input_frame.py        # Выбор видеофайлов
+    ├── settings_frame.py     # Настройки (кроп, субтитры, папка)
+    ├── progress_frame.py     # Прогресс-бар + лог
+    └── results_frame.py      # Результаты + открыть папку
+
+src/slicr/__main_gui__.py    # Точка входа GUI: python -m slicr.gui
+```
+
+### Автообновление
+
+```
+src/slicr/updater.py          # AutoUpdater: GitHub Releases, фоновая проверка
+.github/workflows/
+└── build-release.yml         # CI/CD: сборка Windows .exe при пуше тега v*
+```
+
 ### Утилиты (Utils)
 
 ```
 src/slicr/utils/
-├── video.py                  # ffmpeg-хелперы (кроп, конкат, кодеки)
-├── subtitles.py              # Генерация и рендеринг субтитров
+├── video.py                  # ffmpeg-хелперы (кроп, нарезка, субтитры)
+├── subtitles.py              # TikTok-субтитры (karaoke, pop-in, ASS)
 └── logging_config.py         # Логирование (файл + консоль)
 ```
 
@@ -157,7 +187,10 @@ queued → downloading → downloaded → transcribing → transcribed → selec
 - **AI:** Claude API (отбор моментов)
 - **STT:** faster-whisper (транскрибация на GPU)
 - **Video:** ffmpeg-python (нарезка, кроп, субтитры)
+- **GUI:** CustomTkinter (десктопный интерфейс)
+- **HTTP:** aiohttp (автообновление, API запросы)
 - **GPU:** pynvml (мониторинг VRAM)
+- **CI/CD:** GitHub Actions + PyInstaller (сборка .exe)
 - **Testing:** pytest + pytest-asyncio
 
 ## Dev-режим (macOS)
@@ -171,6 +204,116 @@ SLICR_MOCK_SELECTOR=1 — mock Claude API (фейковый результат)
 ```
 
 Запуск: двойной клик по `scripts/dev.command` или `python -m slicr`
+
+---
+
+## Архитектурные правила: защита от гонок и дублирования
+
+> Правила ниже основаны на опыте проекта TGForwardez, где отсутствие единых точек входа
+> привело к 9 итерациям рефакторинга. Цель — не допустить тех же ошибок.
+
+### Правило A: Единая точка смены статуса (State Machine)
+
+**ВСЕ** изменения статусов (`videos.status`, `clips.status`, `jobs.status`) — ТОЛЬКО через
+методы класса `Database` с валидацией допустимых переходов.
+
+**ЗАПРЕЩЕНО:**
+```python
+# Прямой UPDATE статуса из pipeline-модуля:
+await db.execute("UPDATE videos SET status = ? WHERE id = ?", (new_status, vid))  # НЕЛЬЗЯ
+```
+
+**ПРАВИЛЬНО:**
+```python
+# Через метод Database с валидацией:
+await db.set_video_status(video_id, VideoStatus.DOWNLOADED, initiator="downloader")
+```
+
+Метод `set_video_status()` обязан:
+1. Проверить допустимость перехода (state machine)
+2. Обновить запись в БД
+3. Записать событие в activity log (когда будет реализован)
+4. Вернуть `bool` — успех или отказ
+
+Допустимые переходы определяются в `constants.py` рядом с enum'ами статусов:
+```python
+VALID_VIDEO_TRANSITIONS: dict[VideoStatus, set[VideoStatus]] = {
+    VideoStatus.QUEUED: {VideoStatus.DOWNLOADING},
+    VideoStatus.DOWNLOADING: {VideoStatus.DOWNLOADED, VideoStatus.FAILED},
+    VideoStatus.DOWNLOADED: {VideoStatus.TRANSCRIBING},
+    # ... и так далее
+}
+```
+
+### Правило B: Единый владелец разделяемых ресурсов
+
+Каждый разделяемый ресурс имеет **ровно одного владельца**:
+
+| Ресурс | Единственный владелец | Паттерн доступа |
+|--------|----------------------|-----------------|
+| Telethon client | `services/telegram_client.py` | Все модули получают клиент только через TelegramClientWrapper |
+| GPU | `gpu/guard.py` | acquire/release перед и после whisper |
+| Статусы сущностей | `database/models.py` | Только через `set_*_status()` с валидацией |
+| Очередь задач | `pipeline/orchestrator.py` | Только orchestrator создаёт и назначает задачи |
+
+**ЗАПРЕЩЕНО:** Создавать TelegramClient, менять статусы или управлять GPU вне указанных владельцев.
+
+### Правило C: Все мутации через Database
+
+Pipeline-модули **не пишут в БД напрямую через SQL**. Все мутации — через публичные методы
+класса `Database` в `database/models.py`.
+
+Это гарантирует:
+- Синхронизацию памяти и БД
+- Единую точку для валидации
+- Возможность добавить activity log без изменения 10 файлов
+
+### Правило D: Init barrier
+
+При запуске приложения (`__main__.py`) фоновые задачи (monitor, orchestrator, bot)
+**НЕ начинают работу** до завершения инициализации всех подсистем.
+
+```python
+init_complete = asyncio.Event()
+
+# В monitor.run(), orchestrator.run():
+await init_complete.wait()
+
+# В __main__.py после инициализации БД, клиентов, конфига:
+init_complete.set()
+```
+
+### Правило E: Нет прямого доступа к внутренним полям чужих модулей
+
+```python
+# ЗАПРЕЩЕНО — downloader лезет во внутренности monitor:
+file_path = monitor._download_queue[0]._file_ref
+
+# ПРАВИЛЬНО — через публичный API:
+file_ref = await monitor.get_next_download()
+```
+
+Если публичного метода нет — добавь его во владельце, а не обходи инкапсуляцию.
+
+---
+
+## TODO: Frontend Standards
+
+> **Когда дойдём до реализации фронтенда** — необходимо создать отдельный документ
+> `docs/FRONTEND_STANDARDS.md` по аналогии с TGForwardez проектом.
+>
+> Должен включать:
+> - Выбор фреймворка и обоснование
+> - Структура компонентов и директорий
+> - State management подход
+> - API-контракт между backend и frontend
+> - Стилевые конвенции (CSS/Tailwind/etc.)
+> - Правила роутинга
+> - Тестирование фронтенда
+>
+> **Не начинать фронтенд без утверждённого стандарта.**
+
+---
 
 ## Правило целостности документации
 
@@ -197,7 +340,7 @@ SLICR_MOCK_SELECTOR=1 — mock Claude API (фейковый результат)
 
 ## Правило утверждённой структуры
 
-Структура проекта зафиксирована в **MODULE_MAP.md** (секция "Архитектура Проекта").
+Структура проекта зафиксирована в **[docs/MODULE_MAP.md](docs/MODULE_MAP.md)** (секция "Архитектура Проекта").
 Это **единственный источник истины** о том, где какие файлы лежат.
 
 **ЗАПРЕЩЕНО:**
@@ -272,8 +415,8 @@ from .models import Database
 Уровень 1 (данные):  database/
 Уровень 2 (сервисы): services/, utils/, gpu/
 Уровень 3 (логика):  pipeline/
-Уровень 4 (UI):      bot/
-Уровень 5 (запуск):  __main__.py
+Уровень 4 (UI):      bot/, gui/
+Уровень 5 (запуск):  __main__.py, __main_gui__.py
 ```
 
 **ЗАПРЕЩЕНО:**
@@ -345,6 +488,36 @@ clip = await db.get_clip(clip_id)  # Данные из БД
 
 ---
 
+## После написания кода — ОБЯЗАТЕЛЬНАЯ проверка
+
+```bash
+# 1. Линтер на изменённые файлы
+ruff check src/slicr/path/to/changed_file.py
+
+# 2. Релевантные тесты
+pytest tests/test_relevant.py -x -q --timeout=60
+
+# 3. Полный прогон (перед коммитом)
+pytest tests/ -x -q --timeout=120
+```
+
+**Если ruff или тесты падают — починить перед коммитом. Не коммитить сломанный код.**
+
+---
+
+## Параллельность
+
+**Всегда запускай параллельных агентов** когда задачи независимы. Примеры:
+- Ревью 4 модулей → 4 параллельных агента (не последовательно)
+- Исследование 3 файлов → 3 параллельных Read/Grep
+- Фикс в разных пакетах → параллельные worker-агенты
+
+Не жди завершения одного агента, чтобы запустить следующий, если между ними нет зависимости.
+
+Подробнее о фазах работы агентов — см. [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md).
+
+---
+
 ## Важные Правила
 
 ### ДЕЛАЙ:
@@ -354,6 +527,8 @@ clip = await db.get_clip(clip_id)  # Данные из БД
 4. Используй `src/slicr/database/` и `src/slicr/constants.py` (они общие)
 5. Учитывай dev-режим: все GPU-зависимые модули имеют mock
 6. **Обновляй документацию при каждом структурном изменении**
+7. **Все мутации статусов — через Database с валидацией (Правило A)**
+8. **Все ресурсы — через единого владельца (Правило B)**
 
 ### НЕ ДЕЛАЙ:
 1. Не читай все файлы подряд
@@ -366,6 +541,8 @@ clip = await db.get_clip(clip_id)  # Данные из БД
 8. **Не используй относительные импорты** (см. Правило 1)
 9. **Не создавай циклические зависимости между модулями** (см. Правило 2)
 10. **Не импортируй внешние SDK напрямую из pipeline/bot/** (см. Правило 4)
+11. **Не меняй статусы напрямую через SQL — только через Database методы** (см. Правило A)
+12. **Не создавай TelegramClient / не управляй GPU вне назначенного владельца** (см. Правило B)
 
 ### СПРАШИВАЙ:
 - Если нужен файл вне активной группы — объясни ЗАЧЕМ
@@ -383,11 +560,11 @@ clip = await db.get_clip(clip_id)  # Данные из БД
 
 ## Дополнительная Документация
 
-- **[MODULE_MAP.md](MODULE_MAP.md)** — главная карта модулей и утверждённая структура (ОБЯЗАТЕЛЬНА К ПРОЧТЕНИЮ)
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — гайд по разработке
-- **[DEVELOPMENT_STANDARDS.md](DEVELOPMENT_STANDARDS.md)** — стандарты кода
-- **[../ARCHITECTURE.md](../../ARCHITECTURE.md)** — полная архитектура
-- **[ROADMAP.md](ROADMAP.md)** — план развития
+- **[docs/MODULE_MAP.md](docs/MODULE_MAP.md)** — главная карта модулей и утверждённая структура (ОБЯЗАТЕЛЬНА К ПРОЧТЕНИЮ)
+- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** — гайд по разработке
+- **[docs/DEVELOPMENT_STANDARDS.md](docs/DEVELOPMENT_STANDARDS.md)** — стандарты кода
+- **[docs/PARALLEL_BUILD_PLAN.md](docs/PARALLEL_BUILD_PLAN.md)** — план параллельной сборки
+- **[docs/TGF_INTEGRATION.md](docs/TGF_INTEGRATION.md)** — интеграция с TGForwardez
 
 ---
 

@@ -631,11 +631,11 @@ Publish Worker подхватывает PUBLISH
 - [x] Claude API: ClaudeClient с CF Worker прокси, rate limiter, retry (2026-03-05)
 - [x] AI Selection: MomentSelector вызывает Claude, сохраняет clip в БД (2026-03-05)
 - [x] Cloudflare Worker: универсальный прокси /claude, /gemini, /groq (2026-03-05)
-- [ ] Download → Transcribe: текст с таймкодами из whisper
-- [ ] Select → Edit: ffmpeg кропает + накладывает субтитры
+- [x] Download → Transcribe: Groq Whisper API через CF Worker прокси (2026-03-05)
+- [x] Select → Edit: ffmpeg extract + crop 9:16 + ASS субтитры (2026-03-05)
+- [x] Full pipeline test: видео → транскрипция → AI-отбор → клип за 68 сек (2026-03-05)
 - [ ] Edit → Moderation: клип отправляется в tech-канал
 - [ ] Moderation → Publish: после Approve публикуется в target-канал
-- [ ] Mock-режим: весь цикл работает на Mac без GPU
 - [ ] Orchestrator: worker-ы крутятся и подхватывают задачи
 
 ---

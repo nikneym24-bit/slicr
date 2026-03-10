@@ -54,10 +54,26 @@ slicr/
 │  │  ├─ vk_clips.py                        # VK Clips API [ЗАГЛУШКА]
 │  │  └─ telegram_client.py                 # ✅ Telethon-обёртка
 │  │
+│  ├─ gui/                                # Десктопный интерфейс (CustomTkinter)
+│  │  ├─ __init__.py                        # Re-export SlicApp
+│  │  ├─ app.py                             # ✅ Главное окно (900x600, тёмная тема)
+│  │  ├─ workers.py                         # ✅ ProcessingWorker (threading)
+│  │  └─ frames/
+│  │     ├─ __init__.py
+│  │     ├─ input_frame.py                  # ✅ Выбор видеофайлов
+│  │     ├─ settings_frame.py               # ✅ Настройки (кроп, субтитры, папка)
+│  │     ├─ progress_frame.py               # ✅ Прогресс-бар + лог
+│  │     └─ results_frame.py                # ✅ Результаты + открыть папку
+│  │
+│  ├─ updater.py                          # ✅ Автообновление через GitHub Releases
+│  │
 │  └─ utils/                              # Утилиты
-│     ├─ video.py                           # ffmpeg-хелперы [ЗАГЛУШКА]
-│     ├─ subtitles.py                       # Генерация субтитров [ЗАГЛУШКА]
+│     ├─ video.py                           # ✅ ffmpeg-хелперы (кроп, нарезка, субтитры)
+│     ├─ subtitles.py                       # ✅ TikTok-субтитры (karaoke, pop-in, ASS)
 │     └─ logging_config.py                  # ✅ Настройка логирования
+│
+├─ .github/workflows/
+│  └─ build-release.yml                    # ✅ CI/CD: сборка .exe при пуше тега v*
 │
 ├─ cloudflare/                            # Cloudflare Workers
 │  ├─ claude-proxy-worker.js                # ✅ Универсальный AI API прокси (/claude, /gemini, /groq)
@@ -246,7 +262,51 @@ src/slicr/utils/
 
 ---
 
-### ГРУППА 8: Тесты
+### ГРУППА 8: GUI (Десктопный интерфейс)
+
+**Когда использовать:**
+- UI приложения (CustomTkinter)
+- Фоновая обработка видео через GUI
+- Drag&drop, настройки, прогресс
+
+**Файлы:**
+```
+src/slicr/gui/
+├── __init__.py          # Re-export SlicApp
+├── app.py               # Главное окно (900x600, тёмная тема)
+├── workers.py           # ProcessingWorker (threading)
+└── frames/
+    ├── __init__.py
+    ├── input_frame.py   # Выбор видеофайлов
+    ├── settings_frame.py # Настройки (кроп, субтитры, папка)
+    ├── progress_frame.py # Прогресс-бар + лог
+    └── results_frame.py  # Результаты + открыть папку
+
+src/slicr/__main_gui__.py   # Точка входа GUI
+```
+
+**Зависимости:** customtkinter, `src/slicr/utils/`, `src/slicr/updater.py`
+
+---
+
+### ГРУППА 9: Автообновление и CI/CD
+
+**Когда использовать:**
+- Обновление приложения через GitHub Releases
+- Сборка .exe через PyInstaller
+- CI/CD pipeline
+
+**Файлы:**
+```
+src/slicr/updater.py                    # AutoUpdater: check, download, apply
+.github/workflows/build-release.yml     # GitHub Actions: build .exe on tag push
+```
+
+**Зависимости:** aiohttp, `slicr.__version__`
+
+---
+
+### ГРУППА 10: Тесты
 
 **Когда использовать:**
 - Написание/запуск тестов
@@ -315,7 +375,10 @@ tests/
 | src/slicr/services/claude_client.py | aiohttp (+ Cloudflare Worker прокси) |
 | src/slicr/services/vk_clips.py | vk_api |
 | src/slicr/services/telegram_client.py | telethon |
+| src/slicr/gui/* | customtkinter, src/slicr/utils/, src/slicr/updater.py |
+| src/slicr/updater.py | aiohttp, slicr.__version__ |
 | src/slicr/__main__.py | ВСЁ |
+| src/slicr/__main_gui__.py | src/slicr/gui/ |
 
 ---
 
@@ -329,7 +392,9 @@ tests/
 - **Внешние API** → ГРУППА 5
 - **Telegram бот** → ГРУППА 6
 - **Утилиты** → ГРУППА 7
-- **Тесты** → ГРУППА 8
+- **GUI (десктоп)** → ГРУППА 8
+- **Автообновление/CI** → ГРУППА 9
+- **Тесты** → ГРУППА 10
 
 ### По этапу конвейера:
 - Мониторинг каналов → `src/slicr/pipeline/monitor.py` + `src/slicr/services/telegram_client.py`
@@ -342,5 +407,5 @@ tests/
 
 ---
 
-**Версия:** 2.1
-**Последнее обновление:** 2026-03-05
+**Версия:** 3.0
+**Последнее обновление:** 2026-03-10
