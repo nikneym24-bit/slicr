@@ -188,90 +188,133 @@ class ClaudeClient:
         self,
         transcript: str,
         duration: float,
-    ) -> dict[str, Any] | None:
+    ) -> list[dict[str, Any]]:
         """
-        Анализировать транскрипцию и выбрать лучший фрагмент.
+        Анализировать транскрипцию и выбрать лучшие фрагменты.
+
+        Claude сам определяет количество моментов в зависимости от
+        длительности и качества контента.
 
         Args:
             transcript: Текст транскрипции с таймкодами
             duration: Полная длительность видео в секундах
 
         Returns:
-            Словарь с полями: start_time, end_time, title, description,
-            reason, score — или None если момент не найден.
+            Список словарей с полями: start_time, end_time, title,
+            description, reason, score. Пустой список если ничего не найдено.
         """
         min_clip = self.config.min_clip_duration
         max_clip = self.config.max_clip_duration
 
         system = (
             "Ты — эксперт по вирусному видеоконтенту. "
-            "Твоя задача — найти самый захватывающий фрагмент из транскрипции видео "
-            "для вертикального клипа (9:16). "
+            "Твоя задача — найти самые захватывающие фрагменты из транскрипции видео "
+            "для вертикальных клипов (9:16). "
             "Отвечай ТОЛЬКО валидным JSON без markdown-обёрток."
         )
 
         prompt = (
             f"Проанализируй транскрипцию видео (длительность: {duration:.0f} сек) "
-            f"и выбери ОДИН самый вирусный фрагмент длительностью от {min_clip} до {max_clip} секунд.\n\n"
+            f"и выбери ВСЕ подходящие вирусные фрагменты длительностью "
+            f"от {min_clip} до {max_clip} секунд.\n\n"
+            "Сам определи сколько фрагментов выбрать — от 0 до 10. "
+            "Критерии: эмоциональность, законченная мысль, цепляющая фраза, "
+            "интрига, юмор, конфликт. Не добавляй слабые моменты ради количества.\n\n"
             f"Транскрипция:\n{transcript}\n\n"
-            "Верни JSON с полями:\n"
-            '- "start_time": float (секунды начала фрагмента)\n'
-            '- "end_time": float (секунды конца фрагмента)\n'
-            '- "title": string (короткий цепляющий заголовок для клипа, по-русски)\n'
-            '- "description": string (описание клипа для публикации, 1-2 предложения)\n'
-            '- "reason": string (почему этот фрагмент самый вирусный)\n'
+            'Верни JSON-объект с ключом "moments" — массив объектов:\n'
+            '- "start_time": float (секунды начала)\n'
+            '- "end_time": float (секунды конца)\n'
+            '- "title": string (короткий цепляющий заголовок, по-русски)\n'
+            '- "description": string (описание для публикации, 1-2 предложения)\n'
+            '- "reason": string (почему этот фрагмент вирусный)\n'
             '- "score": float (оценка виральности от 0 до 100)\n'
             '- "keywords": list[string] (3-5 ключевых слов)\n\n'
-            "Если в транскрипции нет подходящего контента, верни "
-            '{"skip": true, "reason": "причина"}.'
+            "Фрагменты НЕ должны пересекаться. Сортируй по score (лучший первый).\n\n"
+            "Если подходящего контента нет, верни "
+            '{"moments": [], "skip_reason": "причина"}.'
         )
 
         try:
             result = await self._call_api(
                 messages=[{"role": "user", "content": prompt}],
                 system=system,
-                max_tokens=512,
+                max_tokens=2048,
                 temperature=0.3,
-                timeout=30.0,
+                timeout=60.0,
             )
 
-            if result.get("skip"):
-                logger.info(f"Claude пропустил видео: {result.get('reason')}")
-                return None
+            # Обработка формата с массивом moments
+            moments_raw = result.get("moments", [])
+            if not moments_raw:
+                skip_reason = result.get("skip_reason", "нет подходящих моментов")
+                logger.info(f"Claude пропустил видео: {skip_reason}")
+                return []
 
-            # Валидация обязательных полей
+            # Валидация каждого момента
+            validated: list[dict[str, Any]] = []
             required = ["start_time", "end_time", "title", "reason", "score"]
-            missing = [f for f in required if f not in result]
-            if missing:
-                logger.error(f"Claude вернул неполный ответ, нет полей: {missing}")
-                return None
 
-            # Валидация таймкодов
-            start = float(result["start_time"])
-            end = float(result["end_time"])
-            clip_duration = end - start
+            for i, moment in enumerate(moments_raw):
+                missing = [f for f in required if f not in moment]
+                if missing:
+                    logger.warning(f"Момент {i}: нет полей {missing}, пропускаем")
+                    continue
 
-            if start < 0 or end > duration or start >= end:
-                logger.error(f"Невалидные таймкоды: {start}-{end} (видео {duration}s)")
-                return None
+                start = float(moment["start_time"])
+                end = float(moment["end_time"])
+                clip_duration = end - start
 
-            if clip_duration < min_clip or clip_duration > max_clip:
-                logger.warning(
-                    f"Длина клипа {clip_duration:.1f}s вне диапазона "
-                    f"[{min_clip}, {max_clip}], корректируем"
-                )
-                # Пытаемся скорректировать до допустимой длины
+                if start < 0 or end > duration + 1 or start >= end:
+                    logger.warning(
+                        f"Момент {i}: невалидные таймкоды {start:.1f}-{end:.1f}, пропускаем"
+                    )
+                    continue
+
+                # Корректируем длину если вне диапазона
                 if clip_duration < min_clip:
                     end = min(start + min_clip, duration)
                 elif clip_duration > max_clip:
                     end = start + max_clip
-                result["end_time"] = end
+                moment["start_time"] = start
+                moment["end_time"] = end
 
-            return result
+                validated.append(moment)
+
+            # Убираем пересечения: оставляем момент с большим score
+            validated = self._remove_overlaps(validated)
+
+            logger.info(f"Claude выбрал {len(validated)} моментов из {len(moments_raw)}")
+            return validated
 
         except ClaudeAPIError as e:
             logger.error(f"Ошибка Claude API: {e}")
-            return None
+            return []
+
+    @staticmethod
+    def _remove_overlaps(moments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Убрать пересекающиеся моменты, оставляя с большим score."""
+        if not moments:
+            return []
+
+        # Сортируем по score (убывание)
+        sorted_moments = sorted(moments, key=lambda m: float(m.get("score", 0)), reverse=True)
+        accepted: list[dict[str, Any]] = []
+
+        for moment in sorted_moments:
+            start = float(moment["start_time"])
+            end = float(moment["end_time"])
+            overlaps = False
+            for kept in accepted:
+                ks = float(kept["start_time"])
+                ke = float(kept["end_time"])
+                if start < ke and end > ks:
+                    overlaps = True
+                    break
+            if not overlaps:
+                accepted.append(moment)
+
+        # Возвращаем отсортированными по score
+        return accepted
 
     async def health_check(self) -> bool:
         """Проверить доступность Claude API через прокси."""
