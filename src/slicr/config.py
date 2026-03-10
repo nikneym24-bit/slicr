@@ -26,6 +26,10 @@ class Config:
     # Пример: "https://ai-proxy.nikneym24.workers.dev/claude"
     # Если пусто — прямое подключение к api.anthropic.com
 
+    # Groq API
+    groq_api_key: str = ""
+    groq_proxy_url: str = ""
+
     # VK
     vk_access_token: str = ""
     vk_group_id: int = 0
@@ -132,6 +136,8 @@ def load_config(path: str = "creds.json") -> Config:
         claude_api_key=data.get("claude_api_key", ""),
         claude_model=data.get("claude_model", "claude-sonnet-4-20250514"),
         claude_proxy_url=data.get("claude_proxy_url", ""),
+        groq_api_key=data.get("groq_api_key", ""),
+        groq_proxy_url=data.get("groq_proxy_url", ""),
         vk_access_token=data.get("vk_access_token", ""),
         vk_group_id=int(data.get("vk_group_id", 0)),
         min_video_duration=int(data.get("min_video_duration", 30)),

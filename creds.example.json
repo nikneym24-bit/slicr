@@ -28,6 +28,9 @@
     "claude_model": "claude-sonnet-4-20250514",
     "claude_proxy_url": "",
 
+    "groq_api_key": "",
+    "groq_proxy_url": "",
+
     "vk_access_token": "YOUR_VK_TOKEN",
     "vk_group_id": 0,
 

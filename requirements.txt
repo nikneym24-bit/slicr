@@ -12,6 +12,13 @@ ffmpeg-python>=0.2.0
 # Database
 aiosqlite>=0.21.0
 
+# HTTP
+aiohttp>=3.9.0
+
+# GUI
+customtkinter>=5.2.0
+Pillow>=10.0.0
+
 # Utils
 python-dotenv>=1.0.0
 
