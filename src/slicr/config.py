@@ -30,6 +30,10 @@ class Config:
     groq_api_key: str = ""
     groq_proxy_url: str = ""
 
+    # HTTP-прокси для внешних API (V2Ray, SOCKS и т.д.)
+    # Пример: "http://127.0.0.1:10801"
+    http_proxy: str = ""
+
     # VK
     vk_access_token: str = ""
     vk_group_id: int = 0
@@ -138,6 +142,7 @@ def load_config(path: str = "creds.json") -> Config:
         claude_proxy_url=data.get("claude_proxy_url", ""),
         groq_api_key=data.get("groq_api_key", ""),
         groq_proxy_url=data.get("groq_proxy_url", ""),
+        http_proxy=data.get("http_proxy", ""),
         vk_access_token=data.get("vk_access_token", ""),
         vk_group_id=int(data.get("vk_group_id", 0)),
         min_video_duration=int(data.get("min_video_duration", 30)),

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slicr — Нарезка видео</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --card: #0f3460;
+  --accent: #e94560;
+  --accent-hover: #c73550;
+  --text: #eee;
+  --text-dim: #8892b0;
+  --green: #4CAF50;
+  --border: #233554;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  color: var(--accent);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+}
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(233, 69, 96, 0.05);
+}
+.upload-zone-icon { font-size: 2.5rem; margin-bottom: 8px; }
+.upload-zone-text { color: var(--text-dim); }
+
+input[type="file"] { display: none; }
+
+/* File list */
+.file-list { margin-top: 12px; }
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+.file-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-item-size { color: var(--text-dim); margin: 0 12px; white-space: nowrap; }
+.file-item-remove {
+  background: none; border: none; color: var(--accent);
+  cursor: pointer; font-size: 1.2rem; padding: 0 4px;
+}
+
+/* Settings */
+.setting-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.setting-row label { flex: 0 0 auto; cursor: pointer; }
+
+.toggle {
+  position: relative; width: 44px; height: 24px;
+  background: #555; border-radius: 12px; cursor: pointer;
+  transition: background 0.2s;
+}
+.toggle.active { background: var(--green); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; background: white; border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle.active::after { transform: translateX(20px); }
+
+.slider-container { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 200px; }
+input[type="range"] {
+  flex: 1; accent-color: var(--accent); height: 6px;
+  -webkit-appearance: none; background: var(--border); border-radius: 3px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px;
+  background: var(--accent); border-radius: 50%; cursor: pointer;
+}
+.slider-value {
+  min-width: 45px; text-align: center; font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* Buttons */
+.btn {
+  display: block; width: 100%; padding: 14px;
+  background: var(--accent); color: white;
+  border: none; border-radius: var(--radius);
+  font-size: 1.1rem; font-weight: 600; cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+.btn:hover { background: var(--accent-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  background: var(--card); border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--border); }
+
+/* Progress */
+.progress-bar-container {
+  width: 100%; height: 8px; background: var(--border);
+  border-radius: 4px; overflow: hidden; margin: 8px 0;
+}
+.progress-bar-fill {
+  height: 100%; background: var(--accent); border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.progress-status {
+  font-size: 0.9rem; color: var(--text-dim); margin-bottom: 4px;
+}
+
+/* Log */
+.log-box {
+  background: #0a0a1a; border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.8rem; color: var(--text-dim);
+  max-height: 200px; overflow-y: auto;
+  line-height: 1.6;
+}
+
+/* Results */
+.result-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--card); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 6px;
+}
+.result-item-info { flex: 1; }
+.result-item-name { color: var(--green); font-weight: 500; }
+.result-item-meta { font-size: 0.8rem; color: var(--text-dim); }
+.btn-download {
+  background: var(--green); color: white; border: none;
+  padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  font-size: 0.85rem; font-weight: 500; text-decoration: none;
+}
+.btn-download:hover { opacity: 0.85; }
+
+/* Preview */
+.preview-container {
+  position: relative;
+  background: #0a0a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.preview-container canvas {
+  display: block;
+  width: 100%;
+}
+.preview-hint {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.hidden { display: none; }
+
+/* Mobile */
+@media (max-width: 600px) {
+  .container { padding: 10px; }
+  h1 { font-size: 1.2rem; }
+  .upload-zone { padding: 20px; }
+  .upload-zone-icon { font-size: 2rem; }
+  .setting-row { flex-direction: column; align-items: flex-start; }
+  .slider-container { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Slicr v0.1.0</h1>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="card-title">Видеофайлы</div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-zone-icon">+</div>
+      <div class="upload-zone-text">Нажмите или перетащите видео</div>
+      <div class="upload-zone-text" style="font-size:0.8rem;margin-top:4px">MP4, AVI, MKV, MOV, WebM</div>
+    </div>
+    <input type="file" id="fileInput" multiple accept="video/*,.mp4,.avi,.mkv,.mov,.webm,.flv">
+    <div class="file-list" id="fileList"></div>
+  </div>
+
+  <!-- Preview -->
+  <div class="card hidden" id="previewCard">
+    <div class="card-title">Превью кропа</div>
+    <div class="preview-container">
+      <canvas id="previewCanvas" width="760" height="300"></canvas>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="card">
+    <div class="card-title">Настройки</div>
+
+    <div class="setting-row">
+      <div class="toggle active" id="cropToggle" onclick="toggleSetting(this)"></div>
+      <label onclick="toggleSetting(document.getElementById('cropToggle'))">Кроп 9:16</label>
+    </div>
+
+    <div class="setting-row" id="cropSliderRow">
+      <span style="font-size:0.85rem">Позиция кропа:</span>
+      <div class="slider-container">
+        <span style="font-size:0.75rem;color:var(--text-dim)">Лево</span>
+        <input type="range" id="cropOffset" min="0" max="100" value="50"
+               oninput="document.getElementById('cropValue').textContent=this.value+'%'; renderPreview()">
+        <span style="font-size:0.75rem;color:var(--text-dim)">Право</span>
+        <span class="slider-value" id="cropValue">50%</span>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="toggle active" id="subsToggle" onclick="toggleSetting(this)"></div>
+      <label onclick="toggleSetting(document.getElementById('subsToggle'))">Субтитры</label>
+    </div>
+
+    <div class="setting-row">
+      <span style="font-size:0.85rem">Макс. длительность:</span>
+      <div class="slider-container">
+        <input type="range" id="maxDuration" min="5" max="60" value="15" step="5"
+               oninput="document.getElementById('durationValue').textContent=this.value+' сек'">
+        <span class="slider-value" id="durationValue">15 сек</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Process button -->
+  <button class="btn" id="processBtn" onclick="startProcessing()">Обработать</button>
+
+  <!-- Progress -->
+  <div class="card hidden" id="progressCard">
+    <div class="card-title">Прогресс</div>
+    <div class="progress-status" id="progressStatus">Готов к работе</div>
+    <div class="progress-bar-container">
+      <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+  <!-- Results -->
+  <div class="card hidden" id="resultsCard">
+    <div class="card-title" id="resultsTitle">Результаты</div>
+    <div id="resultsList"></div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin + '/api';
+let files = [];
+let currentTaskId = null;
+let ws = null;
+let previewImage = null; // Image object для превью
+
+// --- File management ---
+const fileInput = document.getElementById('fileInput');
+const uploadZone = document.getElementById('uploadZone');
+const fileList = document.getElementById('fileList');
+
+fileInput.addEventListener('change', (e) => addFiles(e.target.files));
+
+uploadZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadZone.classList.add('dragover');
+});
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  addFiles(e.dataTransfer.files);
+});
+
+function addFiles(newFiles) {
+  for (const f of newFiles) {
+    if (!files.find(x => x.name === f.name && x.size === f.size)) {
+      files.push(f);
+    }
+  }
+  renderFileList();
+  // Загрузить превью для первого файла
+  if (files.length > 0 && !previewImage) {
+    loadPreview(files[0]);
+  }
+}
+
+function removeFile(index) {
+  files.splice(index, 1);
+  renderFileList();
+}
+
+function renderFileList() {
+  fileList.innerHTML = '';
+  files.forEach((f, i) => {
+    const sizeMB = (f.size / 1024 / 1024).toFixed(1);
+    fileList.innerHTML += `
+      <div class="file-item">
+        <span class="file-item-name">${f.name}</span>
+        <span class="file-item-size">${sizeMB} MB</span>
+        <button class="file-item-remove" onclick="removeFile(${i})">x</button>
+      </div>`;
+  });
+}
+
+// --- Preview ---
+async function loadPreview(file) {
+  // Извлекаем кадр прямо в браузере через <video> + canvas (без загрузки на сервер)
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.muted = true;
+  video.playsInline = true;        // iOS Safari: без этого видео не загружается
+  video.preload = 'auto';
+  video.setAttribute('playsinline', ''); // дублируем как атрибут для надёжности
+  video.src = url;
+
+  let captured = false;
+
+  function captureFrame() {
+    if (captured) return;
+    if (!video.videoWidth || !video.videoHeight) return;
+    captured = true;
+
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = video.videoWidth;
+    tmpCanvas.height = video.videoHeight;
+    tmpCanvas.getContext('2d').drawImage(video, 0, 0);
+
+    const img = new Image();
+    img.onload = () => {
+      previewImage = img;
+      document.getElementById('previewCard').classList.remove('hidden');
+      renderPreview();
+    };
+    img.src = tmpCanvas.toDataURL('image/jpeg', 0.8);
+    URL.revokeObjectURL(url);
+    video.removeAttribute('src');
+    video.load(); // освобождаем ресурсы
+  }
+
+  video.addEventListener('seeked', captureFrame);
+
+  video.addEventListener('loadeddata', () => {
+    // Перематываем на 1 секунду для более интересного кадра
+    if (video.duration > 0) {
+      video.currentTime = Math.min(1, video.duration * 0.1);
+    } else {
+      // На мобильных duration может быть NaN/0 — захватываем первый кадр как есть
+      captureFrame();
+    }
+  });
+
+  // Fallback: если seeked не сработал за 3 секунды — захватываем что есть
+  setTimeout(() => {
+    if (!captured && video.readyState >= 2) captureFrame();
+  }, 3000);
+
+  video.addEventListener('error', () => {
+    console.error('Preview error: не удалось загрузить видео');
+    URL.revokeObjectURL(url);
+  });
+
+  // Явный load() — на мобильных без него preload='auto' может игнорироваться
+  video.load();
+}
+
+function renderPreview() {
+  if (!previewImage) return;
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Размер canvas по контейнеру
+  const container = canvas.parentElement;
+  canvas.width = container.clientWidth;
+  canvas.height = Math.min(400, container.clientWidth * 0.5);
+
+  const cw = canvas.width;
+  const ch = canvas.height;
+
+  // Очистить
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Вписать изображение
+  const origW = previewImage.naturalWidth;
+  const origH = previewImage.naturalHeight;
+  const scale = Math.min(cw / origW, ch / origH);
+  const imgW = origW * scale;
+  const imgH = origH * scale;
+  const imgX = (cw - imgW) / 2;
+  const imgY = (ch - imgH) / 2;
+
+  ctx.drawImage(previewImage, imgX, imgY, imgW, imgH);
+
+  // Рамка кропа 9:16
+  const cropOffset = document.getElementById('cropOffset').value / 100;
+  const cropAspect = 9 / 16;
+  let origCropW = origH * cropAspect;
+  if (origCropW > origW) origCropW = origW;
+
+  const origMaxShift = origW - origCropW;
+  const cropW = origCropW * scale;
+  const cropH = imgH;
+  const maxShift = origMaxShift * scale;
+
+  const cropX = imgX + maxShift * cropOffset;
+  const cropY = imgY;
+
+  // Затемнение слева
+  if (cropX > imgX) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(imgX, imgY, cropX - imgX, imgH);
+  }
+
+  // Затемнение справа
+  const rightEdge = cropX + cropW;
+  const imgRight = imgX + imgW;
+  if (rightEdge < imgRight) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(rightEdge, imgY, imgRight - rightEdge, imgH);
+  }
+
+  // Рамка
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 3]);
+  ctx.strokeRect(cropX, cropY, cropW, cropH);
+  ctx.setLineDash([]);
+
+  // Метка "9:16"
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText('9:16', cropX + 6, cropY + 18);
+}
+
+// Перерисовать при ресайзе
+window.addEventListener('resize', () => { if (previewImage) renderPreview(); });
+
+// --- Settings ---
+function toggleSetting(el) {
+  el.classList.toggle('active');
+  if (el.id === 'cropToggle') {
+    document.getElementById('cropSliderRow').style.display =
+      el.classList.contains('active') ? 'flex' : 'none';
+  }
+}
+
+// --- Processing ---
+async function startProcessing() {
+  if (files.length === 0) {
+    alert('Выберите хотя бы один видеофайл');
+    return;
+  }
+
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+  btn.textContent = 'Обработка...';
+
+  document.getElementById('progressCard').classList.remove('hidden');
+  document.getElementById('resultsCard').classList.add('hidden');
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('progressBar').style.width = '0%';
+
+  connectWebSocket();
+
+  // Обрабатываем файлы последовательно
+  const allResults = [];
+
+  for (let i = 0; i < files.length; i++) {
+    addLog(`Загрузка ${i+1}/${files.length}: ${files[i].name}...`);
+
+    const formData = new FormData();
+    formData.append('file', files[i]);
+    formData.append('crop_enabled', document.getElementById('cropToggle').classList.contains('active'));
+    formData.append('crop_x_offset', document.getElementById('cropOffset').value / 100);
+    formData.append('subtitles_enabled', document.getElementById('subsToggle').classList.contains('active'));
+    formData.append('max_clip_duration', document.getElementById('maxDuration').value);
+
+    try {
+      const resp = await fetch(API + '/process', { method: 'POST', body: formData });
+      const data = await resp.json();
+      currentTaskId = data.task_id;
+      addLog(`Задача ${data.task_id} создана`);
+
+      // Поллинг статуса
+      const result = await waitForTask(data.task_id, i, files.length);
+      if (result && result.clips) {
+        allResults.push(...result.clips.map(c => ({...c, task_id: data.task_id})));
+      }
+    } catch (e) {
+      addLog(`ОШИБКА: ${e.message}`);
+    }
+  }
+
+  showResults(allResults);
+  btn.disabled = false;
+  btn.textContent = 'Обработать';
+}
+
+async function waitForTask(taskId, fileIdx, totalFiles) {
+  while (true) {
+    await sleep(1000);
+    try {
+      const resp = await fetch(API + `/tasks/${taskId}`);
+      const task = await resp.json();
+
+      // Общий прогресс с учётом нескольких файлов
+      const overallPct = ((fileIdx + task.progress) / totalFiles) * 100;
+      document.getElementById('progressBar').style.width = overallPct + '%';
+      document.getElementById('progressStatus').textContent = task.message || '';
+
+      if (task.status === 'completed') return task;
+      if (task.status === 'failed') {
+        addLog(`Ошибка: ${task.error}`);
+        return null;
+      }
+    } catch (e) {
+      // Пропускаем ошибки сети
+    }
+  }
+}
+
+// --- Results ---
+function showResults(clips) {
+  const card = document.getElementById('resultsCard');
+  const list = document.getElementById('resultsList');
+  const title = document.getElementById('resultsTitle');
+
+  card.classList.remove('hidden');
+  title.textContent = `Готово! Клипов: ${clips.length}`;
+  list.innerHTML = '';
+
+  clips.forEach(clip => {
+    const downloadUrl = API + `/download/${clip.task_id}/${clip.index}`;
+    list.innerHTML += `
+      <div class="result-item">
+        <div class="result-item-info">
+          <div class="result-item-name">${clip.path}</div>
+        </div>
+        <a class="btn-download" href="${downloadUrl}" download>Скачать</a>
+      </div>`;
+  });
+}
+
+// --- WebSocket logs ---
+function connectWebSocket() {
+  if (ws && ws.readyState === WebSocket.OPEN) return;
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws/logs`);
+  ws.onmessage = (e) => addLog(e.data);
+  ws.onclose = () => { ws = null; };
+}
+
+// --- Helpers ---
+function addLog(msg) {
+  const box = document.getElementById('logBox');
+  const time = new Date().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  box.innerHTML += `[${time}] ${msg}\n`;
+  box.scrollTop = box.scrollHeight;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>

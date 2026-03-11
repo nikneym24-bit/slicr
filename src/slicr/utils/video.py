@@ -7,8 +7,38 @@
 
 import asyncio
 import logging
+import subprocess
+import sys
 
 logger = logging.getLogger(__name__)
+
+
+async def _run_ffmpeg(cmd: list[str]) -> tuple[int, str]:
+    """
+    Запустить ffmpeg-команду.
+
+    На Windows в reload-режиме asyncio.create_subprocess_exec() не работает
+    (NotImplementedError), поэтому используем subprocess.run в потоке.
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        return proc.returncode or 0, stderr.decode(errors="replace")
+    except NotImplementedError:
+        # Windows + uvicorn reload: event loop не поддерживает subprocess
+        def _sync() -> tuple[int, str]:
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            return result.returncode, result.stderr.decode(errors="replace")
+
+        return await asyncio.to_thread(_sync)
 
 
 async def extract_segment(
@@ -42,16 +72,10 @@ async def extract_segment(
         f"из {input_path}"
     )
 
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    _, stderr = await proc.communicate()
+    returncode, stderr = await _run_ffmpeg(cmd)
 
-    if proc.returncode != 0:
-        error = stderr.decode(errors="replace")[-500:]
-        logger.error(f"ffmpeg extract_segment ошибка: {error}")
+    if returncode != 0:
+        logger.error(f"ffmpeg extract_segment ошибка: {stderr[-500:]}")
         return None
 
     logger.info(f"Сегмент вырезан: {output_path}")
@@ -94,16 +118,10 @@ async def crop_to_vertical(
     logger.debug(f"ffmpeg crop: {' '.join(cmd)}")
     logger.info(f"Кроп в {width}x{height}: {input_path}")
 
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    _, stderr = await proc.communicate()
+    returncode, stderr = await _run_ffmpeg(cmd)
 
-    if proc.returncode != 0:
-        error = stderr.decode(errors="replace")[-500:]
-        logger.error(f"ffmpeg crop_to_vertical ошибка: {error}")
+    if returncode != 0:
+        logger.error(f"ffmpeg crop_to_vertical ошибка: {stderr[-500:]}")
         return None
 
     logger.info(f"Кроп завершён: {output_path}")
@@ -121,8 +139,9 @@ async def burn_subtitles(
     Returns:
         Путь к выходному файлу или None при ошибке.
     """
-    # Экранируем путь к субтитрам для ffmpeg filter (: и \ нужно экранировать)
-    escaped_sub = subtitle_path.replace("\\", "\\\\").replace(":", "\\:")
+    # Экранируем путь к субтитрам для ffmpeg filter
+    # На Windows: заменяем \ на / (ffmpeg фильтры понимают /) и экранируем :
+    escaped_sub = subtitle_path.replace("\\", "/").replace(":", "\\:")
 
     cmd = [
         "ffmpeg", "-y",
@@ -136,16 +155,10 @@ async def burn_subtitles(
     logger.debug(f"ffmpeg subtitles: {' '.join(cmd)}")
     logger.info(f"Накладываем субтитры: {subtitle_path}")
 
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    _, stderr = await proc.communicate()
+    returncode, stderr = await _run_ffmpeg(cmd)
 
-    if proc.returncode != 0:
-        error = stderr.decode(errors="replace")[-500:]
-        logger.error(f"ffmpeg burn_subtitles ошибка: {error}")
+    if returncode != 0:
+        logger.error(f"ffmpeg burn_subtitles ошибка: {stderr[-500:]}")
         return None
 
     logger.info(f"Субтитры наложены: {output_path}")

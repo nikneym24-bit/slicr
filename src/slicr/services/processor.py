@@ -493,18 +493,34 @@ class VideoProcessor:
     async def _get_duration(path: str) -> float:
         """Получить длительность видео через ffprobe."""
         import asyncio as _asyncio
+        import subprocess as _subprocess
 
-        proc = await _asyncio.create_subprocess_exec(
+        cmd = [
             "ffprobe", "-v", "error",
             "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1",
             path,
-            stdout=_asyncio.subprocess.PIPE,
-            stderr=_asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await proc.communicate()
+        ]
 
         try:
-            return float(stdout.decode().strip())
+            proc = await _asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=_asyncio.subprocess.PIPE,
+                stderr=_asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await proc.communicate()
+            stdout_text = stdout.decode().strip()
+        except NotImplementedError:
+            # Windows + uvicorn reload: event loop не поддерживает subprocess
+            def _sync() -> str:
+                result = _subprocess.run(
+                    cmd, stdout=_subprocess.PIPE, stderr=_subprocess.PIPE,
+                )
+                return result.stdout.decode().strip()
+
+            stdout_text = await _asyncio.to_thread(_sync)
+
+        try:
+            return float(stdout_text)
         except (ValueError, AttributeError):
             return 0.0

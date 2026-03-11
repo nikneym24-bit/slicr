@@ -10,14 +10,18 @@
 import asyncio
 import json
 import logging
+import subprocess
+import sys
+import tempfile
 import time
 from typing import Any
-
-import aiohttp
 
 from slicr.config import Config
 
 logger = logging.getLogger(__name__)
+
+# На Windows нужен curl.exe чтобы не попасть на PowerShell-алиас
+CURL_CMD = "curl.exe" if sys.platform == "win32" else "curl"
 
 ANTHROPIC_API_BASE = "https://api.anthropic.com"
 ANTHROPIC_VERSION = "2023-06-01"
@@ -36,11 +40,10 @@ class ClaudeAPIError(Exception):
 
 
 class ClaudeClient:
-    """Клиент Claude API с поддержкой Cloudflare-прокси."""
+    """Клиент Claude API с поддержкой Cloudflare-прокси (через curl)."""
 
     def __init__(self, config: Config) -> None:
         self.config = config
-        self._session: aiohttp.ClientSession | None = None
 
         # Определяем base_url: прокси или прямой доступ
         if config.claude_proxy_url:
@@ -53,16 +56,9 @@ class ClaudeClient:
         self._rate_lock = asyncio.Lock()
         self._max_rpm = 50  # Anthropic tier 1 limit
 
-    def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
-
     async def close(self) -> None:
-        """Закрыть HTTP-сессию."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
+        """Заглушка для совместимости (curl не требует сессий)."""
+        pass
 
     async def _check_rate_limit(self) -> bool:
         """Проверить rate limit. Возвращает True если можно делать запрос."""
@@ -86,7 +82,7 @@ class ClaudeClient:
         timeout: float = 30.0,
     ) -> dict[str, Any]:
         """
-        Вызов Claude Messages API с retry.
+        Вызов Claude Messages API через curl с retry.
 
         Returns:
             Распарсенный JSON из ответа модели.
@@ -106,65 +102,133 @@ class ClaudeClient:
         if system:
             payload["system"] = system
 
-        headers = {
-            "Content-Type": "application/json",
-            "x-api-key": self.config.claude_api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-        }
-
         url = f"{self._base_url}/v1/messages"
 
         last_error: ClaudeAPIError | None = None
         for attempt in range(_MAX_RETRIES + 1):
             try:
-                session = self._get_session()
-                async with session.post(
-                    url,
-                    json=payload,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        err = ClaudeAPIError(
-                            f"Claude HTTP {response.status}: {error_text}",
-                            status_code=response.status,
+                status_code, body = await self._curl_post_json(
+                    url, payload, timeout=timeout,
+                )
+
+                if status_code != 200:
+                    err = ClaudeAPIError(
+                        f"Claude HTTP {status_code}: {body[:500]}",
+                        status_code=status_code,
+                    )
+                    if status_code in _RETRYABLE_STATUSES and attempt < _MAX_RETRIES:
+                        delay = _BASE_DELAY * (2 ** attempt)
+                        logger.warning(
+                            f"Claude ошибка (попытка {attempt + 1}): {err}, "
+                            f"retry через {delay}s"
                         )
-                        if response.status in _RETRYABLE_STATUSES and attempt < _MAX_RETRIES:
-                            delay = _BASE_DELAY * (2 ** attempt)
-                            logger.warning(
-                                f"Claude ошибка (попытка {attempt + 1}): {err}, "
-                                f"retry через {delay}s"
-                            )
-                            last_error = err
-                            await asyncio.sleep(delay)
-                            continue
-                        raise err
+                        last_error = err
+                        await asyncio.sleep(delay)
+                        continue
+                    raise err
 
-                    data = await response.json()
+                data = json.loads(body)
 
-                    # Извлекаем текст из ответа
-                    try:
-                        text = data["content"][0]["text"]
-                    except (KeyError, IndexError) as e:
-                        raise ClaudeAPIError(
-                            f"Некорректная структура ответа: {e}"
-                        )
+                # Извлекаем текст из ответа
+                try:
+                    text = data["content"][0]["text"]
+                except (KeyError, IndexError) as e:
+                    raise ClaudeAPIError(
+                        f"Некорректная структура ответа: {e}"
+                    )
 
-                    return self._parse_json(text)
+                return self._parse_json(text)
 
-            except asyncio.TimeoutError:
-                last_error = ClaudeAPIError(f"Claude таймаут ({timeout}s)")
+            except json.JSONDecodeError as e:
+                raise ClaudeAPIError(f"Некорректный JSON от API: {e}")
+            except ClaudeAPIError:
+                raise
+            except Exception as e:
+                last_error = ClaudeAPIError(f"Claude ошибка: {e}")
                 if attempt < _MAX_RETRIES:
                     delay = _BASE_DELAY * (2 ** attempt)
-                    logger.warning(f"Таймаут (попытка {attempt + 1}), retry через {delay}s")
+                    logger.warning(f"Ошибка (попытка {attempt + 1}): {e}, retry через {delay}s")
                     await asyncio.sleep(delay)
                     continue
                 raise last_error
-            except aiohttp.ClientError as e:
-                raise ClaudeAPIError(f"Claude HTTP ошибка: {e}")
 
         raise last_error  # type: ignore[misc]
+
+    async def _curl_post_json(
+        self,
+        url: str,
+        payload: dict,
+        timeout: float = 30.0,
+    ) -> tuple[int, str]:
+        """Выполнить POST-запрос через curl, вернуть (status_code, body)."""
+        payload_json = json.dumps(payload, ensure_ascii=False)
+
+        # Пишем body в temp-файл чтобы избежать проблем с экранированием
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8",
+        ) as tmp_payload:
+            tmp_payload.write(payload_json)
+            payload_path = tmp_payload.name
+
+        # Temp-файл для ответа (избегаем проблем с \r\n на Windows)
+        tmp_response = tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False,
+        )
+        response_path = tmp_response.name
+        tmp_response.close()
+
+        cmd = [
+            CURL_CMD, "-s",
+            "-X", "POST",
+            "-H", "Content-Type: application/json",
+            "-H", f"x-api-key: {self.config.claude_api_key}",
+            "-H", f"anthropic-version: {ANTHROPIC_VERSION}",
+            "-H", "Expect:",
+            "-d", f"@{payload_path}",
+            "-o", response_path,
+            "-w", "%{http_code}",
+            "--max-time", str(int(timeout)),
+        ]
+
+        if self.config.http_proxy:
+            cmd.extend(["--proxy", self.config.http_proxy, "--proxy-basic"])
+
+        cmd.append(url)
+
+        try:
+            def _run() -> tuple[int, str]:
+                import os
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        timeout=timeout + 5,
+                    )
+                    status_str = result.stdout.decode().strip()
+                    status = int(status_str) if status_str.isdigit() else 0
+
+                    with open(response_path, "r", encoding="utf-8") as f:
+                        body = f.read()
+
+                    return status, body
+                finally:
+                    for p in (payload_path, response_path):
+                        try:
+                            os.remove(p)
+                        except OSError:
+                            pass
+
+            return await asyncio.to_thread(_run)
+
+        except subprocess.TimeoutExpired:
+            import os
+            for p in (payload_path, response_path):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+            raise ClaudeAPIError(f"Claude таймаут ({timeout}s)")
 
     @staticmethod
     def _parse_json(text: str) -> dict[str, Any]:
@@ -332,11 +396,6 @@ class ClaudeClient:
         if not await self._check_rate_limit():
             return False
 
-        headers = {
-            "Content-Type": "application/json",
-            "x-api-key": self.config.claude_api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-        }
         payload = {
             "model": self.config.claude_model,
             "max_tokens": 10,
@@ -345,11 +404,7 @@ class ClaudeClient:
         url = f"{self._base_url}/v1/messages"
 
         try:
-            session = self._get_session()
-            async with session.post(
-                url, json=payload, headers=headers,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                return response.status == 200
-        except (aiohttp.ClientError, asyncio.TimeoutError):
+            status_code, _ = await self._curl_post_json(url, payload, timeout=10.0)
+            return status_code == 200
+        except Exception:
             return False

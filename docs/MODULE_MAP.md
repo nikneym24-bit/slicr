@@ -65,6 +65,16 @@ slicr/
 │  │     ├─ progress_frame.py               # ✅ Прогресс-бар + лог
 │  │     └─ results_frame.py                # ✅ Результаты + открыть папку
 │  │
+│  ├─ web/                                # Веб-сервис (FastAPI)
+│  │  ├─ __init__.py                        # Re-export create_app
+│  │  ├─ __main__.py                        # python -m slicr.web
+│  │  ├─ app.py                             # FastAPI приложение, lifespan, статика
+│  │  ├─ state.py                           # AppState: очередь задач, воркер, лог-стрим
+│  │  ├─ routes.py                          # API: /process, /tasks, /download, /health
+│  │  ├─ ws.py                              # WebSocket /ws/logs
+│  │  └─ static/
+│  │     └─ index.html                      # Responsive веб-интерфейс (mobile + desktop)
+│  │
 │  ├─ updater.py                          # ✅ Автообновление через GitHub Releases
 │  │
 │  └─ utils/                              # Утилиты
@@ -78,6 +88,8 @@ slicr/
 ├─ cloudflare/                            # Cloudflare Workers
 │  ├─ claude-proxy-worker.js                # ✅ Универсальный AI API прокси (/claude, /gemini, /groq)
 │  └─ wrangler.toml                         # Конфиг деплоя Workers
+│
+├─ src/slicr/__main_web__.py              # Точка входа веб-сервиса (uvicorn 0.0.0.0:8080)
 │
 ├─ scripts/
 │  ├─ dev.command                           # macOS лаунчер
@@ -328,6 +340,32 @@ tests/
 
 ---
 
+### ГРУППА 11: Web (Веб-сервис)
+
+**Когда использовать:**
+- Веб-интерфейс и API для обработки видео
+- WebSocket стрим логов
+- Деплой на Windows PC
+
+**Файлы:**
+```
+src/slicr/web/
+├── __init__.py          # Re-export create_app
+├── __main__.py          # python -m slicr.web
+├── app.py               # FastAPI приложение, lifespan, статика
+├── state.py             # AppState: очередь задач, воркер, лог-стрим
+├── routes.py            # API: /process, /tasks, /download, /health
+├── ws.py                # WebSocket /ws/logs
+└── static/
+    └── index.html       # Responsive веб-интерфейс (mobile + desktop)
+
+src/slicr/__main_web__.py   # Точка входа: uvicorn на 0.0.0.0:8080
+```
+
+**Зависимости:** fastapi, uvicorn, python-multipart, `src/slicr/services/processor.py`
+
+---
+
 ## Типичные Сценарии Работы
 
 ### Сценарий 1: "Транскрибация работает некорректно"
@@ -377,9 +415,11 @@ tests/
 | src/slicr/services/vk_clips.py | vk_api |
 | src/slicr/services/telegram_client.py | telethon |
 | src/slicr/gui/* | customtkinter, src/slicr/utils/, src/slicr/updater.py |
+| src/slicr/web/* | fastapi, uvicorn, src/slicr/services/processor.py, src/slicr/config.py |
 | src/slicr/updater.py | aiohttp, slicr.__version__ |
 | src/slicr/__main__.py | ВСЁ |
 | src/slicr/__main_gui__.py | src/slicr/gui/ |
+| src/slicr/__main_web__.py | src/slicr/web/ |
 
 ---
 
@@ -396,6 +436,7 @@ tests/
 - **GUI (десктоп)** → ГРУППА 8
 - **Автообновление/CI** → ГРУППА 9
 - **Тесты** → ГРУППА 10
+- **Веб-сервис** → ГРУППА 11
 
 ### По этапу конвейера:
 - Мониторинг каналов → `src/slicr/pipeline/monitor.py` + `src/slicr/services/telegram_client.py`

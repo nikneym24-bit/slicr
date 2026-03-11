@@ -148,6 +148,59 @@ src/slicr/gui/
 src/slicr/__main_gui__.py    # Точка входа GUI: python -m slicr.gui
 ```
 
+### Web (Веб-сервис)
+
+```
+src/slicr/web/
+├── __init__.py               # Re-export create_app
+├── __main__.py               # python -m slicr.web
+├── app.py                    # FastAPI + статика + lifespan
+├── state.py                  # AppState: очередь, воркер, WebSocket лог-стрим
+├── routes.py                 # REST API: /process, /preview, /tasks, /download, /health
+├── ws.py                     # WebSocket /ws/logs (реалтайм логи)
+└── static/
+    └── index.html            # Responsive UI (mobile + desktop), canvas crop preview
+
+src/slicr/__main_web__.py    # Точка входа: python -m slicr.web → uvicorn 0.0.0.0:8080
+```
+
+#### API-эндпоинты
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/api/health` | Healthcheck |
+| POST | `/api/process` | Загрузить видео + запустить обработку (multipart/form-data) |
+| POST | `/api/preview` | Извлечь кадр для превью кропа |
+| GET | `/api/tasks` | Список всех задач |
+| GET | `/api/tasks/{id}` | Статус задачи + список клипов |
+| GET | `/api/download/{id}/{idx}` | Скачать готовый клип |
+| WS | `/ws/logs` | Реалтайм логи обработки |
+
+#### Деплой и запуск на Windows PC
+
+```bash
+# Деплой с MacBook (одна команда):
+./scripts/deploy-win.sh            # обычный запуск
+./scripts/deploy-win.sh --reload   # с auto-reload для разработки
+
+# Ручной запуск на Windows:
+cd C:\slicr
+C:\slicr\venv\Scripts\python.exe -m slicr.web           # production
+C:\slicr\venv\Scripts\python.exe -m slicr.web --reload   # dev (auto-reload .py/.html/.css/.js)
+
+# Хранилище на Windows:
+C:\slicr\storage\uploads\   # загруженные видео
+C:\slicr\storage\clips\     # готовые клипы
+```
+
+#### Загрузка файлов
+
+Загрузка видео — стриминговая (чанки по 1 МБ через aiofiles), не грузит весь файл в RAM.
+
+#### Файрвол Windows
+
+Порт 8080 и python.exe разрешены в Windows Firewall (правила: "Slicr Web 8080", "Slicr Python").
+
 ### Автообновление
 
 ```
@@ -182,13 +235,16 @@ queued → downloading → downloaded → transcribing → transcribed → selec
 
 ## Стек Технологий
 
+- **Web:** FastAPI + uvicorn (веб-сервис на 0.0.0.0:8080)
+- **WebSocket:** встроенный в FastAPI (реалтайм логи)
+- **File I/O:** aiofiles (стриминговая загрузка файлов)
 - **Bot Framework:** aiogram 3.x
 - **Userbot:** telethon (мониторинг каналов)
 - **Database:** SQLite + aiosqlite (async)
 - **AI:** Claude API (отбор моментов)
-- **STT:** faster-whisper (транскрибация на GPU)
+- **STT:** Groq Whisper API (облачная транскрибация)
 - **Video:** ffmpeg-python (нарезка, кроп, субтитры)
-- **GUI:** CustomTkinter (десктопный интерфейс)
+- **GUI:** CustomTkinter (десктопный интерфейс, legacy)
 - **HTTP:** aiohttp (автообновление, API запросы)
 - **GPU:** pynvml (мониторинг VRAM)
 - **CI/CD:** GitHub Actions + PyInstaller (сборка .exe)
@@ -205,6 +261,68 @@ SLICR_MOCK_SELECTOR=1 — mock Claude API (фейковый результат)
 ```
 
 Запуск: двойной клик по `scripts/dev.command` или `python -m slicr`
+
+### Деплой на Windows PC
+
+```bash
+./scripts/deploy-win.sh            # деплой + запуск
+./scripts/deploy-win.sh --reload   # деплой + запуск с auto-reload
+```
+
+Скрипт: останавливает старый процесс → копирует файлы по SCP → запускает сервис → проверяет healthcheck.
+
+## Серверы
+
+### Продакшн-сервер (iMac)
+
+Деплой и запуск production-версии — на iMac по SSH:
+
+```
+Хост:         192.168.0.147
+Пользователь: erofejhabarov
+Подключение:  ssh erofejhabarov@192.168.0.147
+```
+
+SSH-ключ MacBook уже добавлен в known_hosts. Для входа без пароля — настроить `ssh-copy-id`.
+
+Софт устанавливается из GitHub Releases (скомпилированный .app/.dmg через CI/CD).
+
+### Windows PC (рабочая станция + сервер)
+
+Windows PC используется как рабочая станция (видеоредакторы) и сервер для Python веб-сервиса slicr.
+
+```
+Хост:         192.168.0.70
+Пользователь: videographer (группа Administrators)
+Подключение:  ssh windows-pc  (алиас в ~/.ssh/config)
+              ssh videographer@192.168.0.70
+ОС:           Windows 11 Pro (OpenSSH Server, shell: PowerShell)
+Hostname:     DESKTOP-5PL6385
+Спящий режим: отключён (экран гаснет через 10 мин)
+GPU:          GTX 1660 Super (6 ГБ VRAM), CUDA 12.6
+Удалённый доступ: RDP (Windows App на Mac), SSH (CLI)
+Пароль Windows: 0000
+```
+
+**Установленный софт:**
+- Python 3.13.12 (`C:\Users\Videographer\AppData\Local\Programs\Python\Python313\`)
+- pip 25.3
+- ffmpeg 8.0.1
+- git 2.47.1 (`C:\Program Files\Git\cmd\git.exe`)
+- RustDesk (удалённый рабочий стол)
+
+SSH-ключ MacBook добавлен в `C:\ProgramData\ssh\administrators_authorized_keys`. Вход без пароля.
+
+### Важные нюансы SSH на Windows
+
+- Shell по умолчанию — **PowerShell**. Для обычных команд оборачивай в `cmd /c`:
+  ```bash
+  ssh windows-pc "cmd /c dir"         # через cmd
+  ssh windows-pc "Get-ChildItem"      # через PowerShell
+  ```
+- PowerShell **не поддерживает `&&`** для цепочки команд. Используй `;` или отдельные SSH-вызовы
+- Пути с пробелами — в кавычках: `"\"C:\\Program Files\\...\"`"
+- Кодировка вывода — cp866 (кириллица будет кракозябрами в терминале Mac)
 
 ---
 
@@ -298,21 +416,15 @@ file_ref = await monitor.get_next_download()
 
 ---
 
-## TODO: Frontend Standards
+## Фронтенд (Web UI)
 
-> **Когда дойдём до реализации фронтенда** — необходимо создать отдельный документ
-> `docs/FRONTEND_STANDARDS.md` по аналогии с TGForwardez проектом.
->
-> Должен включать:
-> - Выбор фреймворка и обоснование
-> - Структура компонентов и директорий
-> - State management подход
-> - API-контракт между backend и frontend
-> - Стилевые конвенции (CSS/Tailwind/etc.)
-> - Правила роутинга
-> - Тестирование фронтенда
->
-> **Не начинать фронтенд без утверждённого стандарта.**
+Веб-интерфейс реализован как **single-page application** в одном файле `src/slicr/web/static/index.html`:
+
+- **Фреймворк:** Vanilla JS + CSS (без фреймворков, минимальный стек)
+- **Дизайн:** Тёмная тема, responsive (mobile + desktop)
+- **Функции:** Drag & drop загрузка, canvas-превью кропа 9:16, настройки (кроп, субтитры, длительность), прогресс-бар + логи (WebSocket), скачивание готовых клипов
+- **API-контракт:** REST (`/api/*`) + WebSocket (`/ws/logs`)
+- **Статика:** Раздаётся FastAPI через `StaticFiles` + `FileResponse` для `/`
 
 ---
 
@@ -416,8 +528,8 @@ from .models import Database
 Уровень 1 (данные):  database/
 Уровень 2 (сервисы): services/, utils/, gpu/
 Уровень 3 (логика):  pipeline/
-Уровень 4 (UI):      bot/, gui/
-Уровень 5 (запуск):  __main__.py, __main_gui__.py
+Уровень 4 (UI):      bot/, gui/, web/
+Уровень 5 (запуск):  __main__.py, __main_gui__.py, __main_web__.py
 ```
 
 **ЗАПРЕЩЕНО:**
